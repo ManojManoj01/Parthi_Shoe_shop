@@ -1,0 +1,7 @@
+# ==============================================================================
+# Shoe Shop Backend - External Application Configuration (Local Storage Mode)
+# ==============================================================================
+
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:supabase}

@@ -1,0 +1,141 @@
+# ==============================================================================
+# Shoe Shop Backend - Spring Boot 3 Application Configuration
+# Default: 100% Offline Local Persistent Database (Zero Supabase dependency)
+# ==============================================================================
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: shoe-shop-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:supabase}
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+
+  # ----------------------------------------------------------------------------
+  # Local Persistent H2 Database Configuration (Stored locally in ./data/stepstyle_db)
+  # 100% offline, zero network or cloud dependency, never fails on cloud disconnects.
+  # ----------------------------------------------------------------------------
+  datasource:
+    url: ${DB_URL:jdbc:h2:file:./data/stepstyle_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE}
+    driver-class-name: org.h2.Driver
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  # ----------------------------------------------------------------------------
+  # JPA & Hibernate Configuration - Automatically creates and updates tables
+  # ----------------------------------------------------------------------------
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.dialect.H2Dialect}
+    open-in-view: false
+
+  # H2 Interactive Web Console accessible at http://localhost:8080/h2-console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+  # Flyway disabled by default in local mode
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: false
+
+  # Multipart Upload Settings (5MB max image, 10MB request)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+  # Email Configuration (Default dev mode)
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# ------------------------------------------------------------------------------
+# Application Custom Security, Storage & CORS Configuration
+# ------------------------------------------------------------------------------
+app:
+  # Supabase Storage Bucket Configuration
+  # Uses official Supabase Storage REST API (https://<project-ref>.supabase.co/storage/v1)
+  supabase:
+    url: ${SUPABASE_URL:${SUPABASE_STORAGE_URL:https://rlryucrhtugglzefnwxq.supabase.co}}
+    key: ${SUPABASE_SERVICE_ROLE_KEY:${SUPABASE_SERVICE_KEY:${SUPABASE_KEY:}}}
+    bucket: ${SUPABASE_STORAGE_BUCKET:product-images}
+
+  # Dashboard Low Stock Threshold Configuration
+  dashboard:
+    low-stock-threshold: ${LOW_STOCK_THRESHOLD:10}
+
+  # Local filesystem fallback directory for product images
+  upload:
+    dir: ${UPLOAD_DIR:uploads/products}
+
+  # JWT Token Generation & Verification
+  jwt:
+    secret: ${JWT_SECRET:StepStyleFootwearStoreSecretKeyMustBeAtLeast256BitsLongForHmacSha256Security12345}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+    refresh-cookie-name: stepstyle_refresh_token
+
+  # CORS Allowed Origins
+  # Both Admin Panel (port 4201) and Customer Website (port 4200)
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4201,http://localhost:4200,http://127.0.0.1:4201,http://127.0.0.1:4200}
+
+  # Admin Startup Bootstrap
+  # Password is read from ADMIN_BOOTSTRAP_PASSWORD environment variable or defaults to Password@123
+  admin:
+    bootstrap:
+      enabled: ${ADMIN_BOOTSTRAP_ENABLED:true}
+      username: ${ADMIN_BOOTSTRAP_USERNAME:admin}
+      email: ${ADMIN_BOOTSTRAP_EMAIL:admin@stepstyle.com}
+      password: ${ADMIN_BOOTSTRAP_PASSWORD:Password@123}
+      first-name: ${ADMIN_BOOTSTRAP_FIRST_NAME:System}
+      last-name: ${ADMIN_BOOTSTRAP_LAST_NAME:Administrator}
+
+  mail:
+    dev-mode: ${MAIL_DEV_MODE:true}
+    from-email: ${MAIL_FROM:noreply@stepstyle.com}
+
+  frontend:
+    reset-password-url: ${FRONTEND_RESET_PASSWORD_URL:http://localhost:4200/reset-password}
+
+# OpenAPI / Swagger UI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha

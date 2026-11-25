@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
@@ -43,11 +44,11 @@ public class FileStorageServiceImpl implements FileStorageService {
     private final String supabaseUrl;
     private final String supabaseKey;
     private final String supabaseBucket;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     public FileStorageServiceImpl(
             @Value("${app.upload.dir:uploads/products}") String uploadDir,
-            @Value("${app.supabase.url:}") String supabaseUrl,
+            @Value("${app.supabase.url:https://rlryucrhtugglzefnwxq.supabase.co}") String supabaseUrl,
             @Value("${app.supabase.key:}") String supabaseKey,
             @Value("${app.supabase.bucket:product-images}") String supabaseBucket) {
         this.uploadDir = uploadDir;
@@ -55,11 +56,22 @@ public class FileStorageServiceImpl implements FileStorageService {
         this.supabaseKey = (supabaseKey != null && !supabaseKey.isBlank()) ? supabaseKey.trim() : "";
         this.supabaseBucket = (supabaseBucket != null && !supabaseBucket.isBlank()) ? supabaseBucket.trim() : "product-images";
 
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(10000); // 10 seconds connect timeout
+        requestFactory.setReadTimeout(20000);    // 20 seconds read timeout
+        this.restTemplate = new RestTemplate(requestFactory);
+
         this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.fileStorageLocation);
         } catch (IOException ex) {
             throw new FileStorageException("Could not create local upload directory: " + uploadDir, ex);
+        }
+
+        if (!this.supabaseUrl.isEmpty() && !this.supabaseKey.isEmpty()) {
+            logger.info("Supabase Storage enabled -> endpoint: {} (bucket: '{}')", this.supabaseUrl, this.supabaseBucket);
+        } else {
+            logger.info("Supabase Storage key not provided -> local storage active at: {}", this.fileStorageLocation);
         }
     }
 
@@ -100,7 +112,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         String uniqueFileName = UUID.randomUUID() + fileExtension;
 
-        // 1. Try Supabase Storage if configured
+        // 1. Try Supabase Storage first if configured
         if (!supabaseUrl.isEmpty() && !supabaseKey.isEmpty()) {
             try {
                 String uploadEndpoint = supabaseUrl + "/storage/v1/object/" + supabaseBucket + "/" + uniqueFileName;
@@ -109,6 +121,7 @@ public class FileStorageServiceImpl implements FileStorageService {
                 headers.set("Authorization", "Bearer " + supabaseKey);
                 headers.set("apikey", supabaseKey);
                 headers.setContentType(MediaType.parseMediaType(contentType));
+                headers.set("x-upsert", "true");
 
                 HttpEntity<byte[]> requestEntity = new HttpEntity<>(file.getBytes(), headers);
                 ResponseEntity<String> response = restTemplate.exchange(
@@ -123,15 +136,19 @@ public class FileStorageServiceImpl implements FileStorageService {
                     logger.info("Successfully uploaded image to Supabase Storage: {}", publicUrl);
                     return publicUrl;
                 } else {
-                    logger.warn("Supabase Storage responded with non-2xx: {}. Falling back to local storage.", response.getStatusCode());
+                    logger.warn("Supabase Storage responded with status: {}. Falling back to local storage.", response.getStatusCode());
                 }
             } catch (Exception ex) {
-                logger.warn("Supabase Storage upload failed ({}). Falling back to local storage.", ex.getMessage());
+                logger.warn("Supabase Storage upload failed: {}. Falling back to local storage.", ex.getMessage());
             }
         }
 
         // 2. Fallback to Local Filesystem
         try {
+            if (!Files.exists(this.fileStorageLocation)) {
+                Files.createDirectories(this.fileStorageLocation);
+            }
+
             Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName).normalize();
             if (!targetLocation.startsWith(this.fileStorageLocation)) {
                 throw new FileStorageException("Security violation: Attempted path traversal outside upload directory");
@@ -153,6 +170,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
             return normalizedDir + uniqueFileName;
         } catch (IOException ex) {
+            logger.error("Failed to store file {}: {}", uniqueFileName, ex.getMessage(), ex);
             throw new FileStorageException("Failed to store file " + uniqueFileName + ". Please try again!", ex);
         }
     }

@@ -7,6 +7,7 @@ import com.stepstyle.entity.RefreshToken;
 import com.stepstyle.entity.Role;
 import com.stepstyle.entity.User;
 import com.stepstyle.exception.BadRequestException;
+import com.stepstyle.exception.ForbiddenException;
 import com.stepstyle.exception.InvalidTokenException;
 import com.stepstyle.exception.RateLimitExceededException;
 import com.stepstyle.exception.UnauthorizedException;
@@ -43,6 +44,7 @@ public class AuthServiceImpl implements AuthService {
     private final MailService mailService;
 
     private final String refreshCookieName;
+    private final String adminRefreshCookieName;
     private final long refreshExpirationMs;
 
     public AuthServiceImpl(
@@ -55,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
             RateLimitingService rateLimitingService,
             MailService mailService,
             @Value("${app.jwt.refresh-cookie-name:stepstyle_refresh_token}") String refreshCookieName,
+            @Value("${app.jwt.admin-refresh-cookie-name:stepstyle_admin_refresh_token}") String adminRefreshCookieName,
             @Value("${app.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs) {
         this.userRepository = userRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
@@ -65,6 +68,7 @@ public class AuthServiceImpl implements AuthService {
         this.rateLimitingService = rateLimitingService;
         this.mailService = mailService;
         this.refreshCookieName = refreshCookieName;
+        this.adminRefreshCookieName = adminRefreshCookieName;
         this.refreshExpirationMs = refreshExpirationMs;
     }
 
@@ -78,15 +82,19 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 2. Uniqueness checks
+        // 2. Uniqueness checks (case-insensitive to prevent duplicate accounts)
         String trimmedUsername = request.getUsername().trim();
         String trimmedEmail = request.getEmail().trim().toLowerCase();
 
-        if (userRepository.existsByUsername(trimmedUsername)) {
+        if ("admin".equalsIgnoreCase(trimmedUsername) || "administrator".equalsIgnoreCase(trimmedUsername)) {
+            throw new BadRequestException("Username '" + request.getUsername() + "' is reserved");
+        }
+
+        if (userRepository.existsByUsernameIgnoreCase(trimmedUsername)) {
             throw new BadRequestException("Username '" + request.getUsername() + "' is already taken");
         }
 
-        if (userRepository.existsByEmail(trimmedEmail)) {
+        if (userRepository.existsByEmailIgnoreCase(trimmedEmail)) {
             throw new BadRequestException("Email '" + request.getEmail() + "' is already registered");
         }
 
@@ -114,16 +122,7 @@ public class AuthServiceImpl implements AuthService {
         Cart cart = new Cart(savedUser);
         cartRepository.save(cart);
 
-        UserSummaryDto userSummary = new UserSummaryDto(
-                savedUser.getId(),
-                savedUser.getUsername(),
-                savedUser.getEmail(),
-                savedUser.getFirstName(),
-                savedUser.getLastName(),
-                savedUser.getRole()
-        );
-
-        return ApiResponse.ok("User registered successfully. You can now log in.", userSummary);
+        return ApiResponse.ok("User registered successfully. You can now log in.", UserSummaryDto.fromUser(savedUser));
     }
 
     @Override
@@ -134,19 +133,26 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Password and confirm password do not match");
         }
 
+        String trimmedUsername = request.getUsername().trim();
+        String trimmedEmail = request.getEmail().trim().toLowerCase();
+
+        if ("admin".equalsIgnoreCase(trimmedUsername) || "administrator".equalsIgnoreCase(trimmedUsername)) {
+            throw new BadRequestException("Username '" + request.getUsername() + "' is reserved");
+        }
+
         // 2. Uniqueness checks
-        if (userRepository.existsByUsername(request.getUsername().trim())) {
+        if (userRepository.existsByUsernameIgnoreCase(trimmedUsername)) {
             throw new BadRequestException("Username '" + request.getUsername() + "' is already taken");
         }
 
-        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
+        if (userRepository.existsByEmailIgnoreCase(trimmedEmail)) {
             throw new BadRequestException("Email '" + request.getEmail() + "' is already registered");
         }
 
         // 3. Create User with BCrypt hashed password
         User user = new User(
-                request.getUsername().trim(),
-                request.getEmail().trim().toLowerCase(),
+                trimmedUsername,
+                trimmedEmail,
                 passwordEncoder.encode(request.getPassword()),
                 request.getFirstName().trim(),
                 request.getLastName().trim(),
@@ -159,23 +165,31 @@ public class AuthServiceImpl implements AuthService {
         Cart cart = new Cart(savedUser);
         cartRepository.save(cart);
 
-        UserSummaryDto userSummary = new UserSummaryDto(
-                savedUser.getId(),
-                savedUser.getUsername(),
-                savedUser.getEmail(),
-                savedUser.getFirstName(),
-                savedUser.getLastName(),
-                savedUser.getRole()
-        );
-
-        return ApiResponse.ok("Registration successful. You can now log in.", userSummary);
+        return ApiResponse.ok("Registration successful. You can now log in.", UserSummaryDto.fromUser(savedUser));
     }
 
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        return authenticateForRole(request, httpRequest, httpResponse, Role.ROLE_USER, refreshCookieName, "/api/auth");
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse adminLogin(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        return authenticateForRole(request, httpRequest, httpResponse, Role.ROLE_ADMIN, adminRefreshCookieName, "/api/admin");
+    }
+
+    private AuthResponse authenticateForRole(
+            LoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse,
+            Role requiredRole,
+            String cookieName,
+            String cookiePath) {
         String clientIp = getClientIp(httpRequest);
-        String rateLimitKey = clientIp + ":" + request.getUsernameOrEmail().trim().toLowerCase();
+        String identifier = request.getUsernameOrEmail().trim();
+        String rateLimitKey = clientIp + ":" + requiredRole.name() + ":" + identifier.toLowerCase();
 
         // 1. Check rate limiting
         if (rateLimitingService.isBlocked(rateLimitKey)) {
@@ -185,10 +199,9 @@ public class AuthServiceImpl implements AuthService {
                             + remaining + " minute(s).");
         }
 
-        // 2. Retrieve user by username or email
-        String identifier = request.getUsernameOrEmail().trim();
-        User user = userRepository.findByUsername(identifier)
-                .or(() -> userRepository.findByEmail(identifier.toLowerCase()))
+        // 2. Retrieve user by username or email (case-insensitive)
+        User user = userRepository.findByUsernameIgnoreCase(identifier)
+                .or(() -> userRepository.findByEmailIgnoreCase(identifier))
                 .orElse(null);
 
         // 3. Validate user presence and password
@@ -201,14 +214,23 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Your account has been deactivated. Please contact customer support.");
         }
 
+        // 4. Enforce strict separation between Customer and Admin accounts
+        if (user.getRole() != requiredRole) {
+            if (requiredRole == Role.ROLE_ADMIN) {
+                throw new ForbiddenException("Access denied. Administrator privileges required.");
+            } else {
+                throw new ForbiddenException("Administrator accounts cannot sign in to the customer portal. Please use the dedicated Admin Portal.");
+            }
+        }
+
         // Login succeeded, clear failed attempts
         rateLimitingService.loginSucceeded(rateLimitKey);
 
-        // 4. Generate JWT access token
+        // 5. Generate JWT access token
         UserPrincipal userPrincipal = UserPrincipal.create(user);
         String accessToken = tokenProvider.generateAccessToken(userPrincipal);
 
-        // 5. Generate secure refresh token, store hash in DB, and set HttpOnly SameSite cookie
+        // 6. Generate secure refresh token, store hash in DB, and set isolated HttpOnly SameSite cookie
         String rawRefreshToken = tokenProvider.generateSecureRandomToken();
         String tokenHash = tokenProvider.hashToken(rawRefreshToken);
         LocalDateTime expiry = LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000);
@@ -216,18 +238,9 @@ public class AuthServiceImpl implements AuthService {
         RefreshToken refreshToken = new RefreshToken(tokenHash, user, expiry);
         refreshTokenRepository.save(refreshToken);
 
-        setRefreshTokenCookie(httpResponse, rawRefreshToken, refreshExpirationMs / 1000);
+        setRefreshTokenCookie(httpResponse, cookieName, cookiePath, rawRefreshToken, refreshExpirationMs / 1000);
 
-        UserSummaryDto userSummary = new UserSummaryDto(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getRole()
-        );
-
-        return new AuthResponse(accessToken, tokenProvider.getExpirationMs() / 1000, userSummary);
+        return new AuthResponse(accessToken, tokenProvider.getExpirationMs() / 1000, UserSummaryDto.fromUser(user));
     }
 
     @Override
@@ -287,6 +300,21 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse refreshToken(String rawRefreshToken, HttpServletResponse httpResponse) {
+        return rotateRefreshToken(rawRefreshToken, httpResponse, Role.ROLE_USER, refreshCookieName, "/api/auth");
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse adminRefreshToken(String rawRefreshToken, HttpServletResponse httpResponse) {
+        return rotateRefreshToken(rawRefreshToken, httpResponse, Role.ROLE_ADMIN, adminRefreshCookieName, "/api/admin");
+    }
+
+    private AuthResponse rotateRefreshToken(
+            String rawRefreshToken,
+            HttpServletResponse httpResponse,
+            Role requiredRole,
+            String cookieName,
+            String cookiePath) {
         if (rawRefreshToken == null || rawRefreshToken.trim().isEmpty()) {
             throw new UnauthorizedException("Refresh token is missing");
         }
@@ -305,6 +333,10 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("User account is inactive");
         }
 
+        if (user.getRole() != requiredRole) {
+            throw new ForbiddenException("Invalid session role for this portal");
+        }
+
         // Token rotation: Revoke old refresh token and issue new one
         storedToken.setRevoked(true);
         refreshTokenRepository.save(storedToken);
@@ -316,26 +348,27 @@ public class AuthServiceImpl implements AuthService {
         RefreshToken newRefreshToken = new RefreshToken(newTokenHash, user, expiry);
         refreshTokenRepository.save(newRefreshToken);
 
-        setRefreshTokenCookie(httpResponse, newRawRefreshToken, refreshExpirationMs / 1000);
+        setRefreshTokenCookie(httpResponse, cookieName, cookiePath, newRawRefreshToken, refreshExpirationMs / 1000);
 
         UserPrincipal userPrincipal = UserPrincipal.create(user);
         String accessToken = tokenProvider.generateAccessToken(userPrincipal);
 
-        UserSummaryDto userSummary = new UserSummaryDto(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getRole()
-        );
-
-        return new AuthResponse(accessToken, tokenProvider.getExpirationMs() / 1000, userSummary);
+        return new AuthResponse(accessToken, tokenProvider.getExpirationMs() / 1000, UserSummaryDto.fromUser(user));
     }
 
     @Override
     @Transactional
     public ApiResponse<Void> logout(String rawRefreshToken, HttpServletResponse httpResponse) {
+        return performLogout(rawRefreshToken, httpResponse, refreshCookieName, "/api/auth");
+    }
+
+    @Override
+    @Transactional
+    public ApiResponse<Void> adminLogout(String rawRefreshToken, HttpServletResponse httpResponse) {
+        return performLogout(rawRefreshToken, httpResponse, adminRefreshCookieName, "/api/admin");
+    }
+
+    private ApiResponse<Void> performLogout(String rawRefreshToken, HttpServletResponse httpResponse, String cookieName, String cookiePath) {
         if (rawRefreshToken != null && !rawRefreshToken.trim().isEmpty()) {
             String tokenHash = tokenProvider.hashToken(rawRefreshToken.trim());
             refreshTokenRepository.findByTokenHash(tokenHash).ifPresent(token -> {
@@ -345,10 +378,10 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // Expire cookie
-        ResponseCookie cookie = ResponseCookie.from(refreshCookieName, "")
+        ResponseCookie cookie = ResponseCookie.from(cookieName, "")
                 .httpOnly(true)
                 .secure(false)
-                .path("/")
+                .path(cookiePath)
                 .maxAge(0)
                 .sameSite("Lax")
                 .build();
@@ -357,11 +390,11 @@ public class AuthServiceImpl implements AuthService {
         return ApiResponse.ok("Logged out successfully");
     }
 
-    private void setRefreshTokenCookie(HttpServletResponse response, String tokenValue, long maxAgeSeconds) {
-        ResponseCookie cookie = ResponseCookie.from(refreshCookieName, tokenValue)
+    private void setRefreshTokenCookie(HttpServletResponse response, String cookieName, String cookiePath, String tokenValue, long maxAgeSeconds) {
+        ResponseCookie cookie = ResponseCookie.from(cookieName, tokenValue)
                 .httpOnly(true)
                 .secure(false) // Set to true when running over HTTPS in production
-                .path("/")
+                .path(cookiePath)
                 .maxAge(maxAgeSeconds)
                 .sameSite("Lax")
                 .build();

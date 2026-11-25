@@ -1,0 +1,57 @@
+# ==============================================================================
+# StepStyle Footwear Store - Local Development Profile (Persistent Local H2)
+#
+# Features:
+# 1. 100% offline, zero network or Supabase cloud dependency.
+# 2. Persists data locally in ./data/stepstyle_db.mv.db.
+# 3. Auto-creates and updates database tables via Hibernate.
+# 4. Built-in H2 Web Console accessible at http://localhost:8080/h2-console
+# ==============================================================================
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/stepstyle_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+app:
+  supabase:
+    url: ${SUPABASE_URL:${SUPABASE_STORAGE_URL:https://rlryucrhtugglzefnwxq.supabase.co}}
+    key: ${SUPABASE_SERVICE_ROLE_KEY:${SUPABASE_SERVICE_KEY:${SUPABASE_KEY:}}}
+    bucket: ${SUPABASE_STORAGE_BUCKET:product-images}
+  admin:
+    bootstrap:
+      enabled: true
+      username: ${ADMIN_BOOTSTRAP_USERNAME:admin}
+      email: ${ADMIN_BOOTSTRAP_EMAIL:admin@stepstyle.com}
+      password: ${ADMIN_BOOTSTRAP_PASSWORD:Password@123}
+      first-name: ${ADMIN_BOOTSTRAP_FIRST_NAME:System}
+      last-name: ${ADMIN_BOOTSTRAP_LAST_NAME:Administrator}
+  mail:
+    dev-mode: true

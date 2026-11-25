@@ -12,11 +12,17 @@ public interface AuthService {
 
     AuthResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse);
 
+    AuthResponse adminLogin(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse);
+
     ApiResponse<Void> forgotPassword(ForgotPasswordRequest request);
 
     ApiResponse<Void> resetPassword(ResetPasswordRequest request);
 
     AuthResponse refreshToken(String refreshToken, HttpServletResponse httpResponse);
 
+    AuthResponse adminRefreshToken(String refreshToken, HttpServletResponse httpResponse);
+
     ApiResponse<Void> logout(String refreshToken, HttpServletResponse httpResponse);
+
+    ApiResponse<Void> adminLogout(String refreshToken, HttpServletResponse httpResponse);
 }

@@ -12,7 +12,12 @@ public class OrderResponseDto {
 
     private Long id;
     private String orderNumber;
+    private Long userId;
+    private String customerName;
+    private String customerEmail;
+    private String customerPhone;
     private LocalDateTime orderDate;
+    private LocalDateTime createdAt;
     private OrderStatus status;
     private BigDecimal totalAmount;
     private String shippingAddress;
@@ -60,12 +65,52 @@ public class OrderResponseDto {
         this.orderNumber = orderNumber;
     }
 
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getCustomerEmail() {
+        return customerEmail;
+    }
+
+    public void setCustomerEmail(String customerEmail) {
+        this.customerEmail = customerEmail;
+    }
+
+    public String getCustomerPhone() {
+        return customerPhone;
+    }
+
+    public void setCustomerPhone(String customerPhone) {
+        this.customerPhone = customerPhone;
+    }
+
     public LocalDateTime getOrderDate() {
         return orderDate;
     }
 
     public void setOrderDate(LocalDateTime orderDate) {
         this.orderDate = orderDate;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public OrderStatus getStatus() {

@@ -618,11 +618,25 @@ export class ProductFormComponent implements OnInit {
         this.isUploadingImage.set(false);
         this.mainImagePreview.set(res.imageUrl);
         this.productForm.patchValue({ imageUrl: res.imageUrl });
-        this.toastService.success('Image uploaded to Supabase Storage successfully!');
+        this.toastService.success('Image uploaded successfully!');
       },
-      error: err => {
+      error: () => {
         this.isUploadingImage.set(false);
-        this.toastService.error('Failed to upload image to Supabase Storage. You can paste an image URL instead.');
+        if (typeof FileReader !== 'undefined') {
+          const reader = new FileReader();
+          reader.onload = (e: any) => {
+            const dataUrl = e.target.result as string;
+            this.mainImagePreview.set(dataUrl);
+            this.productForm.patchValue({ imageUrl: dataUrl });
+            this.toastService.info('Backend upload unavailable. Image preserved locally as offline preview.');
+          };
+          reader.onerror = () => {
+            this.toastService.error('Failed to read image file. You can paste an image URL instead.');
+          };
+          reader.readAsDataURL(file);
+        } else {
+          this.toastService.error('Failed to upload image. You can paste an image URL instead.');
+        }
       }
     });
   }

@@ -12,6 +12,7 @@ import com.stepstyle.exception.BadRequestException;
 import com.stepstyle.exception.ForbiddenException;
 import com.stepstyle.exception.InsufficientStockException;
 import com.stepstyle.exception.ResourceNotFoundException;
+import com.stepstyle.exception.UnauthorizedException;
 import com.stepstyle.repository.CartItemRepository;
 import com.stepstyle.repository.CartRepository;
 import com.stepstyle.repository.ProductRepository;
@@ -48,9 +49,16 @@ public class CartServiceImpl implements CartService {
         this.userRepository = userRepository;
     }
 
+    private void requirePrincipal(UserPrincipal principal) {
+        if (principal == null || principal.getId() == null) {
+            throw new UnauthorizedException("Please sign in to access your shopping cart");
+        }
+    }
+
     @Override
     @Transactional
     public CartResponseDto getCart(UserPrincipal principal) {
+        requirePrincipal(principal);
         Cart cart = getOrCreateCart(principal.getId());
         return mapToCartResponseDto(cart);
     }
@@ -58,6 +66,7 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public CartResponseDto addItemToCart(UserPrincipal principal, AddToCartRequest request) {
+        requirePrincipal(principal);
         Product product = productRepository.findByIdAndActiveTrue(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Active product not found with id: " + request.getProductId()));
 
@@ -101,6 +110,7 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public CartResponseDto updateCartItem(UserPrincipal principal, Long itemId, UpdateCartItemRequest request) {
+        requirePrincipal(principal);
         Cart cart = getOrCreateCart(principal.getId());
 
         CartItem item = cartItemRepository.findById(itemId)
@@ -133,6 +143,7 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public CartResponseDto removeCartItem(UserPrincipal principal, Long itemId) {
+        requirePrincipal(principal);
         Cart cart = getOrCreateCart(principal.getId());
 
         CartItem item = cartItemRepository.findById(itemId)
@@ -153,6 +164,7 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional
     public CartResponseDto clearCart(UserPrincipal principal) {
+        requirePrincipal(principal);
         Cart cart = getOrCreateCart(principal.getId());
         cart.getItems().clear();
         cartRepository.save(cart);

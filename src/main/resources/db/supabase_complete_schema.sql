@@ -33,9 +33,35 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(50) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER',
     active BOOLEAN NOT NULL DEFAULT TRUE,
+    phone VARCHAR(30),
+    address VARCHAR(255),
+    city VARCHAR(100),
+    state VARCHAR(100),
+    postal_code VARCHAR(20),
+    shoe_size VARCHAR(20),
+    preferred_category VARCHAR(50),
+    gender VARCHAR(20),
+    bio VARCHAR(500),
+    avatar VARCHAR(500),
+    notify_promotions BOOLEAN NOT NULL DEFAULT TRUE,
+    notify_order_updates BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Idempotent profile columns for existing Supabase databases
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS state VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shoe_size VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_category VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(500);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_promotions BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_order_updates BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users (username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
@@ -128,6 +154,41 @@ CREATE TABLE IF NOT EXISTS product_images (
 
 CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images (product_id);
 CREATE INDEX IF NOT EXISTS idx_product_images_display_order ON product_images (display_order);
+
+-- ==============================================================================
+-- 5b. Carts & Cart Items Tables (Strict Per-User Cart Isolation)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS carts (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cart_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE OR REPLACE TRIGGER trg_carts_updated_at
+BEFORE UPDATE ON carts
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS cart_items (
+    id BIGSERIAL PRIMARY KEY,
+    cart_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    size VARCHAR(20) NOT NULL,
+    color VARCHAR(30) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ci_cart FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ci_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT,
+    CONSTRAINT uk_cart_product_size_color UNIQUE (cart_id, product_id, size, color)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id ON cart_items (cart_id);
+
+CREATE OR REPLACE TRIGGER trg_cart_items_updated_at
+BEFORE UPDATE ON cart_items
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ==============================================================================
 -- 6. Orders Table (Enables Admin Orders Dashboard & Customer Checkout)

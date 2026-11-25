@@ -7,8 +7,12 @@ import com.stepstyle.dto.ProductResponseDto;
 import com.stepstyle.entity.Product;
 import com.stepstyle.exception.BadRequestException;
 import com.stepstyle.exception.ResourceNotFoundException;
+import com.stepstyle.repository.CartItemRepository;
 import com.stepstyle.repository.CategoryRepository;
+import com.stepstyle.repository.OrderItemRepository;
+import com.stepstyle.repository.ProductImageRepository;
 import com.stepstyle.repository.ProductRepository;
+import com.stepstyle.repository.ReviewRepository;
 import com.stepstyle.service.FileStorageService;
 import com.stepstyle.service.ProductService;
 import org.springframework.data.domain.Page;
@@ -31,6 +35,10 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final CartItemRepository cartItemRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final ProductImageRepository productImageRepository;
+    private final ReviewRepository reviewRepository;
     private final FileStorageService fileStorageService;
 
     @Value("${app.dashboard.low-stock-threshold:10}")
@@ -38,9 +46,17 @@ public class ProductServiceImpl implements ProductService {
 
     public ProductServiceImpl(ProductRepository productRepository,
                               CategoryRepository categoryRepository,
+                              CartItemRepository cartItemRepository,
+                              OrderItemRepository orderItemRepository,
+                              ProductImageRepository productImageRepository,
+                              ReviewRepository reviewRepository,
                               FileStorageService fileStorageService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.cartItemRepository = cartItemRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.productImageRepository = productImageRepository;
+        this.reviewRepository = reviewRepository;
         this.fileStorageService = fileStorageService;
     }
 
@@ -153,15 +169,22 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
-        try {
-            productRepository.delete(product);
-            productRepository.flush();
-        } catch (Exception ex) {
-            // If relational constraints (such as past order history) prevent hard deletion,
-            // deactivate the product to preserve referential integrity.
+        // Always remove deleted products from active shopping carts
+        cartItemRepository.deleteByProductId(id);
+
+        if (orderItemRepository.existsByProductId(id)) {
+            // Preserve historical order snapshots by deactivating instead of hard-deleting
             product.setActive(false);
             productRepository.save(product);
+            return;
         }
+
+        reviewRepository.deleteByProductId(id);
+        productImageRepository.deleteByProductId(id);
+        if (product.getAdditionalImages() != null) {
+            product.getAdditionalImages().clear();
+        }
+        productRepository.delete(product);
     }
 
     @Override
@@ -236,6 +259,8 @@ public class ProductServiceImpl implements ProductService {
         long totalCategories = categoryRepository.count();
         long lowStockCount = productRepository.countByStockQuantityLessThanAndActiveTrue(lowStockThreshold);
         long chappalsInStock = productRepository.sumChappalStock();
+        long overallTotalStock = productRepository.sumTotalStock();
+        double totalStockValue = productRepository.sumTotalStockValue();
 
         return new DashboardStatsDto(
                 totalProducts,
@@ -244,7 +269,9 @@ public class ProductServiceImpl implements ProductService {
                 totalSlippers,
                 totalCategories,
                 lowStockCount,
-                chappalsInStock
+                chappalsInStock,
+                overallTotalStock,
+                totalStockValue
         );
     }
 
@@ -286,7 +313,7 @@ public class ProductServiceImpl implements ProductService {
             product.setAdditionalImageUrls(dto.getAdditionalImages());
         }
         product.setDiscountPercentage(dto.getDiscountPercentage());
-        product.setRating(dto.getRating() != null ? dto.getRating() : 4.5);
+        product.setRating(dto.getRating() != null ? dto.getRating() : 0.0);
         product.setActive(dto.isActive());
     }
 

@@ -33,10 +33,27 @@ public class CategoryServiceImpl implements CategoryService {
                 ? categoryRepository.findByActiveTrueOrderByDisplayOrderAsc()
                 : categoryRepository.findAllByOrderByDisplayOrderAsc();
 
+        java.util.Map<String, Long> countMap = java.util.Collections.emptyMap();
+        try {
+            countMap = productRepository.countActiveProductsGroupedByCategory().stream()
+                    .filter(row -> row != null && row.length > 1 && row[0] != null)
+                    .collect(Collectors.toMap(
+                            row -> ((String) row[0]).trim().toLowerCase(),
+                            row -> ((Number) row[1]).longValue(),
+                            (c1, c2) -> c1
+                    ));
+        } catch (Exception e) {
+            // Safe fallback if grouping fails
+        }
+
+        final java.util.Map<String, Long> finalCountMap = countMap;
         return categories.stream().map(cat -> {
-            long count = productRepository.countByCategoryIgnoreCaseAndActiveTrue(cat.getName());
-            if (count == 0 && cat.getSlug() != null) {
-                count = productRepository.countByCategoryIgnoreCaseAndActiveTrue(cat.getSlug());
+            String nameKey = cat.getName() != null ? cat.getName().trim().toLowerCase() : "";
+            String slugKey = cat.getSlug() != null ? cat.getSlug().trim().toLowerCase() : "";
+
+            long count = finalCountMap.getOrDefault(nameKey, 0L);
+            if (count == 0 && !slugKey.isEmpty()) {
+                count = finalCountMap.getOrDefault(slugKey, 0L);
             }
             return new CategoryResponseDto(
                     cat.getId(),

@@ -9,12 +9,20 @@ public class DashboardStatsDto {
     private long totalCategories;
     private long lowStockCount;
     private long chappalsInStock;
+    private long overallTotalStock;
+    private double totalStockValue;
 
     public DashboardStatsDto() {
     }
 
     public DashboardStatsDto(long totalProducts, long totalShoes, long totalChappals, long totalSlippers,
                              long totalCategories, long lowStockCount, long chappalsInStock) {
+        this(totalProducts, totalShoes, totalChappals, totalSlippers, totalCategories, lowStockCount, chappalsInStock, 0L, 0.0);
+    }
+
+    public DashboardStatsDto(long totalProducts, long totalShoes, long totalChappals, long totalSlippers,
+                             long totalCategories, long lowStockCount, long chappalsInStock,
+                             long overallTotalStock, double totalStockValue) {
         this.totalProducts = totalProducts;
         this.totalShoes = totalShoes;
         this.totalChappals = totalChappals;
@@ -23,11 +31,13 @@ public class DashboardStatsDto {
         this.totalCategories = totalCategories;
         this.lowStockCount = lowStockCount;
         this.chappalsInStock = chappalsInStock;
+        this.overallTotalStock = overallTotalStock;
+        this.totalStockValue = totalStockValue;
     }
 
     public DashboardStatsDto(long totalProducts, long totalShoes, long totalChappalsAndSlippers,
                              long totalCategories, long lowStockCount, long chappalsInStock) {
-        this(totalProducts, totalShoes, totalChappalsAndSlippers, 0, totalCategories, lowStockCount, chappalsInStock);
+        this(totalProducts, totalShoes, totalChappalsAndSlippers, 0, totalCategories, lowStockCount, chappalsInStock, 0L, 0.0);
     }
 
     public long getTotalProducts() {
@@ -92,5 +102,21 @@ public class DashboardStatsDto {
 
     public void setChappalsInStock(long chappalsInStock) {
         this.chappalsInStock = chappalsInStock;
+    }
+
+    public long getOverallTotalStock() {
+        return overallTotalStock;
+    }
+
+    public void setOverallTotalStock(long overallTotalStock) {
+        this.overallTotalStock = overallTotalStock;
+    }
+
+    public double getTotalStockValue() {
+        return totalStockValue;
+    }
+
+    public void setTotalStockValue(double totalStockValue) {
+        this.totalStockValue = totalStockValue;
     }
 }

@@ -43,7 +43,7 @@ import { ShopLocationComponent } from '../../shared/components/shop-location/sho
             <a [href]="'tel:' + shopInfo.phone" class="text-sm font-extrabold text-orange-600 hover:underline block mt-1">
               {{ shopInfo.phone }}
             </a>
-            <p class="text-[11px] text-slate-400 mt-0.5">Mon - Sun (9 AM - 10 PM)</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Mon - Sun (7 AM - 10 PM)</p>
           </div>
         </div>
 
@@ -56,8 +56,8 @@ import { ShopLocationComponent } from '../../shared/components/shop-location/sho
           </div>
           <div>
             <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">WhatsApp Instant Chat</h3>
-            <a href="https://wa.me/919842123456" target="_blank" class="text-sm font-extrabold text-emerald-600 hover:underline block mt-1">
-              +91 98421 23456
+            <a href="https://wa.me/919626157188" target="_blank" class="text-sm font-extrabold text-emerald-600 hover:underline block mt-1">
+              +91 96261 57188
             </a>
             <p class="text-[11px] text-slate-400 mt-0.5">Quick photo & size consultation</p>
           </div>
@@ -263,7 +263,7 @@ import { ShopLocationComponent } from '../../shared/components/shop-location/sho
             <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
               <h4 class="font-bold text-slate-900">Can I test footwear in the Palani shop directly?</h4>
               <p class="text-slate-600 mt-1 leading-relaxed">
-                Yes! Visit our showroom at Adivaram Sannathi Street, open 7 days a week from 9:00 AM to 10:00 PM.
+                Yes! Visit our showroom at Adivaram Sannathi Street, open 7 days a week from 7:00 AM to 10:00 PM.
               </p>
             </div>
 

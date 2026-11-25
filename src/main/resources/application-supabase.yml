@@ -1,0 +1,41 @@
+# ==============================================================================
+# Shoe Shop Backend - Supabase PostgreSQL Cloud Profile
+# Activate by setting in .env:
+#   SPRING_PROFILES_ACTIVE=supabase
+# Or by passing JVM argument:
+#   -Dspring.profiles.active=supabase
+# ==============================================================================
+
+spring:
+  datasource:
+    url: ${SUPABASE_DB_URL:jdbc:postgresql://aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require&prepareThreshold=0}
+    username: ${SUPABASE_DB_USERNAME:postgres.rlryucrhtugglzefnwxq}
+    password: ${SUPABASE_DB_PASSWORD:Manojshoeshop}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      transaction-isolation: TRANSACTION_READ_COMMITTED
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      keepalive-time: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+
+app:
+  supabase:
+    url: ${SUPABASE_URL:${SUPABASE_STORAGE_URL:https://rlryucrhtugglzefnwxq.supabase.co}}
+    key: ${SUPABASE_SERVICE_ROLE_KEY:${SUPABASE_SERVICE_KEY:${SUPABASE_KEY:}}}
+    bucket: ${SUPABASE_STORAGE_BUCKET:product-images}
+

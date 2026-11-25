@@ -71,11 +71,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 In-Memory Database for fast, zero-dependency unit and integration testing -->
+        <!-- H2 In-Memory Database for fast, zero-dependency local development and testing -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <!-- Flyway Database Migrations for PostgreSQL / Supabase -->

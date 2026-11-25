@@ -32,6 +32,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     long countByCategoryIgnoreCaseAndActiveTrue(String category);
 
+    @Query("SELECT LOWER(p.category), COUNT(p) FROM Product p WHERE p.active = true GROUP BY LOWER(p.category)")
+    java.util.List<Object[]> countActiveProductsGroupedByCategory();
+
     long countByStockQuantityLessThanAndActiveTrue(Integer threshold);
 
     @Query("SELECT COALESCE(SUM(p.stockQuantity), 0) FROM Product p WHERE " +
@@ -51,4 +54,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query("SELECT COUNT(p) FROM Product p WHERE " +
            "(LOWER(p.category) LIKE '%shoe%' OR (LOWER(p.category) NOT LIKE '%chappal%' AND LOWER(p.category) NOT LIKE '%slipper%')) AND p.active = true")
     Long countShoeProducts();
+
+    @Query("SELECT COALESCE(SUM(p.stockQuantity), 0) FROM Product p WHERE p.active = true")
+    Long sumTotalStock();
+
+    @Query("SELECT COALESCE(SUM(p.price), 0.0) FROM Product p WHERE p.active = true")
+    Double sumTotalStockValue();
 }

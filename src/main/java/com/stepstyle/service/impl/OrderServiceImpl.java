@@ -8,6 +8,7 @@ import com.stepstyle.exception.BadRequestException;
 import com.stepstyle.exception.ForbiddenException;
 import com.stepstyle.exception.InsufficientStockException;
 import com.stepstyle.exception.ResourceNotFoundException;
+import com.stepstyle.exception.UnauthorizedException;
 import com.stepstyle.repository.CartRepository;
 import com.stepstyle.repository.OrderRepository;
 import com.stepstyle.repository.ProductRepository;
@@ -54,6 +55,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponseDto createOrderFromCart(UserPrincipal principal, CreateOrderRequest request) {
+        if (principal == null || principal.getId() == null) {
+            throw new UnauthorizedException("Please sign in to place an order");
+        }
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + principal.getId()));
 
@@ -161,6 +165,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getMyOrders(UserPrincipal principal) {
+        if (principal == null || principal.getId() == null) {
+            throw new UnauthorizedException("Please sign in to view your orders");
+        }
         List<Order> orders = orderRepository.findByUserIdOrderByOrderDateDesc(principal.getId());
         return orders.stream()
                 .map(this::mapToOrderResponseDto)
@@ -170,6 +177,9 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public OrderResponseDto getOrderById(UserPrincipal principal, Long orderId) {
+        if (principal == null || principal.getId() == null) {
+            throw new UnauthorizedException("Please sign in to view this order");
+        }
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
@@ -200,7 +210,7 @@ public class OrderServiceImpl implements OrderService {
                 ))
                 .collect(Collectors.toList());
 
-        return new OrderResponseDto(
+        OrderResponseDto dto = new OrderResponseDto(
                 order.getId(),
                 order.getOrderNumber(),
                 order.getOrderDate(),
@@ -214,9 +224,21 @@ public class OrderServiceImpl implements OrderService {
                 order.getTransactionId(),
                 itemDtos
         );
+        if (order.getUser() != null) {
+            dto.setUserId(order.getUser().getId());
+            String fullName = (order.getUser().getFirstName() + " " + order.getUser().getLastName()).trim();
+            dto.setCustomerName(fullName.isEmpty() ? order.getRecipientName() : fullName);
+            dto.setCustomerEmail(order.getUser().getEmail());
+        } else {
+            dto.setCustomerName(order.getRecipientName());
+        }
+        dto.setCustomerPhone(order.getRecipientPhone());
+        dto.setCreatedAt(order.getCreatedAt() != null ? order.getCreatedAt() : order.getOrderDate());
+        return dto;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<OrderResponseDto> getAllOrders() {
         return orderRepository.findAll().stream()
                 .map(this::mapToOrderResponseDto)

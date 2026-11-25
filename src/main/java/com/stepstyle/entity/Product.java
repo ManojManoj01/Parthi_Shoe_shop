@@ -46,7 +46,7 @@ public class Product {
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity = 0;
 
-    @Column(name = "image_url", length = 500)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -56,7 +56,7 @@ public class Product {
     private Integer discountPercentage = 0;
 
     @Column(name = "rating")
-    private Double rating = 4.5;
+    private Double rating = 0.0;
 
     @Column(nullable = false)
     private boolean active = true;

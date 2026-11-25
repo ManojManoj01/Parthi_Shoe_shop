@@ -1,0 +1,6 @@
+com\stepstyle\ContactControllerIntegrationTest.class
+com\stepstyle\UserIsolationIntegrationTest.class
+com\stepstyle\OrderControllerIntegrationTest.class
+com\stepstyle\AuthControllerIntegrationTest.class
+com\stepstyle\ProductControllerIntegrationTest.class
+com\stepstyle\CartControllerIntegrationTest.class

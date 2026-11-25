@@ -167,7 +167,7 @@ public class ProductController {
 
     @PostMapping("/upload-image")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Upload image (Admin)", description = "Uploads an image to Supabase Storage and returns URL")
+    @Operation(summary = "Upload image (Admin)", description = "Uploads an image locally and returns URL")
     public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
         String url = productService.uploadStandaloneImage(file);
         return ResponseEntity.ok(Map.of("imageUrl", url, "message", "Image uploaded successfully"));

@@ -1,10 +1,12 @@
 package com.stepstyle.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ProductRequestDto {
 
     @NotBlank(message = "Product name is required")
@@ -47,7 +49,7 @@ public class ProductRequestDto {
 
     @DecimalMin(value = "0.0", message = "Rating cannot be negative")
     @DecimalMax(value = "5.0", message = "Rating cannot exceed 5.0")
-    private Double rating = 4.5;
+    private Double rating = 0.0;
 
     private boolean active = true;
 
@@ -69,7 +71,7 @@ public class ProductRequestDto {
         this.stockQuantity = stockQuantity;
         this.imageUrl = imageUrl;
         this.discountPercentage = discountPercentage != null ? discountPercentage : 0;
-        this.rating = rating != null ? rating : 4.5;
+        this.rating = rating != null ? rating : 0.0;
         this.active = active;
     }
 
@@ -191,5 +193,24 @@ public class ProductRequestDto {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    private Boolean isFeatured = false;
+    private Boolean isBestSeller = false;
+
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public Boolean getIsBestSeller() {
+        return isBestSeller;
+    }
+
+    public void setIsBestSeller(Boolean isBestSeller) {
+        this.isBestSeller = isBestSeller;
     }
 }

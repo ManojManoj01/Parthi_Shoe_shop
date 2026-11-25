@@ -36,7 +36,7 @@ public class SecurityConfig {
             JwtAuthenticationEntryPoint authenticationEntryPoint,
             CustomAccessDeniedHandler accessDeniedHandler,
             JwtAuthenticationFilter jwtAuthenticationFilter,
-            @Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:4201}") String allowedOrigins) {
+            @Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:4201,http://127.0.0.1:4200,http://127.0.0.1:4201}") String allowedOrigins) {
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -77,6 +77,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
@@ -95,11 +96,15 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
 
+                        // H2 In-Memory Database Web Console (local development)
+                        .requestMatchers("/h2-console/**").permitAll()
+
                         // Public Health & Connection Test endpoint
                         .requestMatchers(HttpMethod.GET, "/api/test").permitAll()
 
                         // Public Authentication endpoints
-                        .requestMatchers("/api/auth/**", "/api/admin/login", "/signup", "/register", "/login", "/forgot-password", "/reset-password").permitAll()
+                        .requestMatchers("/api/auth/signup", "/api/auth/register", "/api/auth/login", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/refresh", "/api/auth/logout", "/api/admin/login", "/api/admin/refresh", "/api/admin/logout", "/signup", "/register", "/login", "/forgot-password", "/reset-password").permitAll()
+                        .requestMatchers("/api/auth/me", "/api/auth/profile").authenticated()
 
                         // Public Category browsing endpoint
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
@@ -116,6 +121,9 @@ public class SecurityConfig {
                         // Static uploaded image serving
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.HEAD, "/uploads/**").permitAll()
+
+                        // Public Customer Product Review submission endpoint
+                        .requestMatchers(HttpMethod.POST, "/api/products/*/reviews").permitAll()
 
                         // Explicit Admin Endpoints (Product mutating, Category mutating, and Admin operations)
                         .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")

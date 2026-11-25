@@ -1,9 +1,7 @@
 package com.stepstyle.config;
 
-import com.stepstyle.entity.Cart;
 import com.stepstyle.entity.Role;
 import com.stepstyle.entity.User;
-import com.stepstyle.repository.CartRepository;
 import com.stepstyle.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +19,6 @@ public class AdminBootstrapRunner implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(AdminBootstrapRunner.class);
 
     private final UserRepository userRepository;
-    private final CartRepository cartRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.admin.bootstrap.enabled:true}")
@@ -44,10 +41,8 @@ public class AdminBootstrapRunner implements CommandLineRunner {
 
     public AdminBootstrapRunner(
             UserRepository userRepository,
-            CartRepository cartRepository,
             PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.cartRepository = cartRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -64,35 +59,38 @@ public class AdminBootstrapRunner implements CommandLineRunner {
             return;
         }
 
-        var existingAdminOpt = userRepository.findByEmail(adminEmail)
-                .or(() -> userRepository.findByUsername(adminUsername));
+        String normalizedAdminEmail = adminEmail.trim().toLowerCase();
+        String normalizedAdminUsername = adminUsername.trim();
+
+        var existingAdminOpt = userRepository.findByEmailIgnoreCase(normalizedAdminEmail)
+                .or(() -> userRepository.findByUsernameIgnoreCase(normalizedAdminUsername));
         if (existingAdminOpt.isPresent()) {
-            User existingAdmin = existingAdminOpt.get();
-            existingAdmin.setPasswordHash(passwordEncoder.encode(adminPassword));
-            existingAdmin.setRole(Role.ROLE_ADMIN);
-            existingAdmin.setActive(true);
-            userRepository.save(existingAdmin);
-            log.info("Admin bootstrap: Updated password for existing administrator account [{}] (username: {}).", adminEmail, existingAdmin.getUsername());
+            User existingUser = existingAdminOpt.get();
+            if (existingUser.getRole() != Role.ROLE_ADMIN) {
+                log.warn("Admin bootstrap: Account [{}] belongs to a non-admin user (role={}). Refusing to overwrite customer account.",
+                        existingUser.getUsername(), existingUser.getRole());
+                return;
+            }
+            existingUser.setPasswordHash(passwordEncoder.encode(adminPassword));
+            existingUser.setActive(true);
+            userRepository.save(existingUser);
+            log.info("Admin bootstrap: Verified dedicated administrator account [{}] (username: {}).", normalizedAdminEmail, existingUser.getUsername());
             return;
         }
 
-        log.info("Bootstrapping initial system administrator account [{}]...", adminEmail);
+        log.info("Bootstrapping dedicated system administrator account [{}]...", normalizedAdminEmail);
 
         User admin = new User(
-                adminUsername.trim(),
-                adminEmail.trim().toLowerCase(),
+                normalizedAdminUsername,
+                normalizedAdminEmail,
                 passwordEncoder.encode(adminPassword),
                 adminFirstName.trim(),
                 adminLastName.trim(),
                 Role.ROLE_ADMIN
         );
 
-        User savedAdmin = userRepository.save(admin);
+        userRepository.save(admin);
 
-        // Initialize admin shopping cart
-        Cart adminCart = new Cart(savedAdmin);
-        cartRepository.save(adminCart);
-
-        log.info("Admin bootstrap completed: Successfully created initial administrator account [{}].", adminEmail);
+        log.info("Admin bootstrap completed: Successfully created dedicated administrator account [{}].", normalizedAdminEmail);
     }
 }

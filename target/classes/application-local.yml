@@ -1,0 +1,58 @@
+# ==============================================================================
+# StepStyle Footwear Store - Local Development Profile (H2 In-Memory Database)
+# 
+# Features:
+# 1. 100% offline, zero network or cloud dependency.
+# 2. Never stops or crashes due to paused Supabase or unreachable database.
+# 3. Auto-creates and updates database tables via Hibernate.
+# 4. Built-in H2 Web Console accessible at http://localhost:8080/h2-console
+# ==============================================================================
+
+spring:
+  # Persistent Local PostgreSQL-compatible H2 database (Stored locally in ./data/stepstyle_db)
+  datasource:
+    url: jdbc:h2:file:./data/stepstyle_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      connection-timeout: 30000
+
+  # Automatic table creation & schema management
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+
+  # Flyway disabled in local mode (Hibernate manages the schema)
+  flyway:
+    enabled: false
+
+  # H2 Interactive Web Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+
+# Local development defaults
+app:
+  admin:
+    bootstrap:
+      enabled: true
+      username: ${ADMIN_BOOTSTRAP_USERNAME:admin}
+      email: ${ADMIN_BOOTSTRAP_EMAIL:admin@stepstyle.com}
+      password: ${ADMIN_BOOTSTRAP_PASSWORD:Password@123}
+      first-name: ${ADMIN_BOOTSTRAP_FIRST_NAME:System}
+      last-name: ${ADMIN_BOOTSTRAP_LAST_NAME:Administrator}
+  mail:
+    dev-mode: true

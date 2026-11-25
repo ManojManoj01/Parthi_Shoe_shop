@@ -59,4 +59,11 @@ public class AdminProductController {
         ProductResponseDto updated = productService.uploadProductImage(id, file);
         return ResponseEntity.ok(updated);
     }
+
+    @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload standalone image (Admin only)", description = "Uploads an image locally and returns URL")
+    public ResponseEntity<java.util.Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+        String url = productService.uploadStandaloneImage(file);
+        return ResponseEntity.ok(java.util.Map.of("imageUrl", url, "message", "Image uploaded successfully"));
+    }
 }
