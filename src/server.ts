@@ -44,7 +44,23 @@ app.use((req, res, next) => {
     .then((response) =>
       response ? writeResponseToNodeResponse(response, res) : next(),
     )
-    .catch(next);
+    .catch((err) => {
+      // Ignore AbortError when client closes, refreshes, or cancels connection
+      if (err?.name === 'AbortError' || req.destroyed || res.writableEnded) {
+        return;
+      }
+      next(err);
+    });
+});
+
+/**
+ * Global Express error handling middleware to suppress aborted client requests
+ */
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.name === 'AbortError' || req.destroyed || res.writableEnded) {
+    return;
+  }
+  next(err);
 });
 
 /**

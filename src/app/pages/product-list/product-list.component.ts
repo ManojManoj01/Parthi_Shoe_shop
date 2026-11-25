@@ -1,12 +1,13 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { AdminProductService } from '../../core/services/product.service';
 import { AdminCategoryService } from '../../core/services/category.service';
 import { ToastService } from '../../core/services/toast.service';
 import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { Category, Product } from '../../core/models/product.model';
+import { isJunkProduct, isProductDeleted, markProductAsDeleted } from '../../core/services/fallback-products';
 
 @Component({
   selector: 'app-product-list',
@@ -17,9 +18,9 @@ import { Category, Product } from '../../core/models/product.model';
       <!-- Confirmation Modal -->
       <app-confirm-modal
         [isOpen]="isDeleteModalOpen()"
-        title="Delete Footwear Product"
+        title="Permanently Remove Product"
         [message]="getDeleteMessage()"
-        confirmText="Yes, Deactivate"
+        confirmText="Yes, Delete Product"
         [isLoading]="isDeleting()"
         (confirmed)="confirmDelete()"
         (cancelled)="isDeleteModalOpen.set(false)"
@@ -28,18 +29,18 @@ import { Category, Product } from '../../core/models/product.model';
       <!-- Page Header -->
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-black text-slate-900 tracking-tight">Footwear Inventory Manager</h2>
+          <h2 class="text-2xl font-black text-slate-900 tracking-tight">Footwear Inventory & Stock Manager</h2>
           <p class="text-xs text-slate-500">
-            Search, filter, edit prices, toggle stock visibility, and update items in real time.
+            Monitor overall stock, filter by categories, edit prices, and manage footwear inventory.
           </p>
         </div>
 
         <div class="flex items-center gap-3">
           <button
             type="button"
-            (click)="loadProducts()"
+            (click)="refreshAll()"
             [disabled]="isLoading()"
-            class="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors shadow-xs flex items-center gap-1.5"
+            class="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <svg class="w-4 h-4" [ngClass]="{ 'animate-spin': isLoading() }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -58,9 +59,91 @@ import { Category, Product } from '../../core/models/product.model';
         </div>
       </div>
 
+      <!-- MODULE 1: OVERALL TOTAL STOCK & INVENTORY VALUATION KPI STRIP -->
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5 bg-gradient-to-r from-slate-900 via-neutral-900 to-slate-900 rounded-2xl p-4 text-white shadow-md border border-slate-800">
+        <!-- 1. Overall Total Stock -->
+        <div class="p-3.5 rounded-xl bg-white/5 border border-white/10">
+          <p class="text-[10px] uppercase font-bold tracking-wider text-orange-400">Overall Total Stock</p>
+          <div class="flex items-baseline gap-1.5 mt-0.5">
+            <span class="text-2xl font-black text-white">{{ overallTotalStock() | number }}</span>
+            <span class="text-[10px] text-orange-200 uppercase font-bold">Units</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">Total stock across all items</p>
+        </div>
+
+        <!-- 2. Total Valuation -->
+        <div class="p-3.5 rounded-xl bg-white/5 border border-white/10">
+          <p class="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Total Stock Value</p>
+          <div class="flex items-baseline gap-1 mt-0.5">
+            <span class="text-xl sm:text-2xl font-black text-white">₹{{ totalStockValue() | number:'1.0-0' }}</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">Sum of all catalog products</p>
+        </div>
+
+        <!-- 3. In-Stock (> 10) -->
+        <button
+          type="button"
+          (click)="setStockFilter('instock')"
+          class="p-3.5 rounded-xl border text-left transition-all cursor-pointer"
+          [ngClass]="selectedStockFilter === 'instock' ? 'bg-blue-600/30 border-blue-400 ring-2 ring-blue-500/50' : 'bg-white/5 border-white/10 hover:bg-white/10'"
+        >
+          <div class="flex items-center justify-between">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-blue-400">In-Stock Footwear</p>
+            @if (selectedStockFilter === 'instock') {
+              <span class="text-[9px] bg-blue-500 text-white px-1.5 py-0.2 rounded font-bold">Active</span>
+            }
+          </div>
+          <div class="flex items-baseline gap-1.5 mt-0.5">
+            <span class="text-2xl font-black text-white">{{ inStockCount() }}</span>
+            <span class="text-[10px] text-blue-200 font-semibold">SKUs</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">&ge; 10 units available</p>
+        </button>
+
+        <!-- 4. Low Stock (< 10) -->
+        <button
+          type="button"
+          (click)="setStockFilter('low')"
+          class="p-3.5 rounded-xl border text-left transition-all cursor-pointer"
+          [ngClass]="selectedStockFilter === 'low' ? 'bg-amber-600/30 border-amber-400 ring-2 ring-amber-500/50' : 'bg-white/5 border-white/10 hover:bg-white/10'"
+        >
+          <div class="flex items-center justify-between">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-amber-400">Low Stock (&lt; 10)</p>
+            @if (selectedStockFilter === 'low') {
+              <span class="text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded font-bold">Active</span>
+            }
+          </div>
+          <div class="flex items-baseline gap-1.5 mt-0.5">
+            <span class="text-2xl font-black text-amber-300">{{ lowStockCount() }}</span>
+            <span class="text-[10px] text-amber-200 font-semibold">Reorder</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">1 - 9 units left</p>
+        </button>
+
+        <!-- 5. Out of Stock (0) -->
+        <button
+          type="button"
+          (click)="setStockFilter('out')"
+          class="p-3.5 rounded-xl border text-left transition-all cursor-pointer col-span-2 lg:col-span-1"
+          [ngClass]="selectedStockFilter === 'out' ? 'bg-rose-600/30 border-rose-400 ring-2 ring-rose-500/50' : 'bg-white/5 border-white/10 hover:bg-white/10'"
+        >
+          <div class="flex items-center justify-between">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-rose-400">Out of Stock (0)</p>
+            @if (selectedStockFilter === 'out') {
+              <span class="text-[9px] bg-rose-500 text-white px-1.5 py-0.2 rounded font-bold">Active</span>
+            }
+          </div>
+          <div class="flex items-baseline gap-1.5 mt-0.5">
+            <span class="text-2xl font-black text-rose-300">{{ outOfStockCount() }}</span>
+            <span class="text-[10px] text-rose-200 font-semibold">Sold Out</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5">0 units available</p>
+        </button>
+      </div>
+
       <!-- Filters & Search Toolbar -->
       <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-4">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           <!-- Search Input -->
           <div class="relative sm:col-span-2 lg:col-span-1">
             <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -75,16 +158,16 @@ import { Category, Product } from '../../core/models/product.model';
             />
           </div>
 
-          <!-- Category Filter -->
+          <!-- Category Filter with Product Counts -->
           <div>
             <select
               [(ngModel)]="selectedCategory"
               (ngModelChange)="onFilterChange()"
               class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:bg-white focus:border-orange-500 cursor-pointer"
             >
-              <option value="all">All Footwear Categories</option>
+              <option value="all">All Footwear Categories ({{ overallProductCount() }} products)</option>
               @for (cat of categories(); track cat.id) {
-                <option [value]="cat.slug">{{ cat.name }}</option>
+                <option [value]="cat.slug">{{ cat.name }} ({{ cat.productCount || 0 }} products)</option>
               }
             </select>
           </div>
@@ -99,6 +182,19 @@ import { Category, Product } from '../../core/models/product.model';
               <option value="all">All Visibility (Active & Inactive)</option>
               <option value="active">Active Only (Customer Visible)</option>
               <option value="inactive">Inactive Only (Hidden)</option>
+            </select>
+          </div>
+
+          <!-- Showcase Badge Filter -->
+          <div>
+            <select
+              [(ngModel)]="selectedShowcase"
+              (ngModelChange)="onFilterChange()"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 font-medium focus:outline-none focus:bg-white focus:border-orange-500 cursor-pointer"
+            >
+              <option value="all">All Showcase Badges</option>
+              <option value="featured">★ Featured Footwear Only</option>
+              <option value="bestseller">🔥 Best Sellers Only</option>
             </select>
           </div>
 
@@ -120,16 +216,23 @@ import { Category, Product } from '../../core/models/product.model';
 
         <!-- Filter Pills / Summary -->
         <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-          <div>
-            Showing <span class="font-bold text-slate-900">{{ totalElements() }}</span> products matching criteria
+          <div class="flex items-center gap-2">
+            <span>
+              Showing <span class="font-bold text-slate-900">{{ totalElements() }}</span> products matching criteria
+            </span>
+            @if (selectedStockFilter !== 'all') {
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-800 uppercase">
+                Stock Filter: {{ selectedStockFilter }}
+              </span>
+            }
           </div>
-          @if (searchQuery || selectedCategory !== 'all' || selectedStatus !== 'all') {
+          @if (searchQuery || selectedCategory !== 'all' || selectedStatus !== 'all' || selectedShowcase !== 'all' || selectedStockFilter !== 'all') {
             <button
               type="button"
               (click)="resetFilters()"
-              class="text-orange-600 hover:text-orange-700 font-semibold"
+              class="text-orange-600 hover:text-orange-700 font-semibold cursor-pointer"
             >
-              Clear Filters
+              Clear All Filters
             </button>
           }
         </div>
@@ -140,57 +243,68 @@ import { Category, Product } from '../../core/models/product.model';
         @if (isLoading()) {
           <div class="p-16 text-center">
             <div class="inline-block animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mb-3"></div>
-            <p class="text-xs text-slate-500 font-medium">Loading footwear catalog from Supabase...</p>
+            <p class="text-xs text-slate-500 font-medium">Loading footwear catalog...</p>
           </div>
         } @else if (products().length === 0) {
           <div class="p-16 text-center">
             <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-4">
               <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
             </div>
-            <h3 class="text-base font-bold text-slate-900">No footwear products match your query</h3>
-            <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-5">
-              Try adjusting your search filters or add a new shoe/chappal item to your inventory.
+            <h3 class="text-base font-extrabold text-slate-800">No products found</h3>
+            <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              No footwear matched your search or filters. Try clearing your filters or adding a new product.
             </p>
-            <a
-              routerLink="/products/add"
-              class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 transition-colors"
-            >
-              <span>+ Add Footwear</span>
-            </a>
+            <div class="mt-5 flex justify-center gap-3">
+              <button
+                type="button"
+                (click)="resetFilters()"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                Clear Filters
+              </button>
+              <a
+                routerLink="/products/add"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 transition-colors"
+              >
+                + Add Product
+              </a>
+            </div>
           </div>
         } @else {
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm text-slate-600">
               <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-400 font-bold border-b border-slate-100">
                 <tr>
-                  <th scope="col" class="px-6 py-4">Item Details</th>
+                  <th scope="col" class="px-6 py-4">Product Info</th>
                   <th scope="col" class="px-6 py-4">Category</th>
-                  <th scope="col" class="px-6 py-4">Price (₹)</th>
+                  <th scope="col" class="px-6 py-4">Price</th>
                   <th scope="col" class="px-6 py-4">Stock</th>
-                  <th scope="col" class="px-6 py-4">Visibility</th>
+                  <th scope="col" class="px-6 py-4">Storefront Showcase</th>
+                  <th scope="col" class="px-6 py-4">Status</th>
                   <th scope="col" class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
-                @for (prod of products(); track prod.id) {
-                  <tr class="hover:bg-slate-50/80 transition-colors" [ngClass]="{ 'opacity-60 bg-slate-50/40': !prod.active }">
-                    <!-- Product info -->
+                @for (product of products(); track product.id) {
+                  <tr class="hover:bg-slate-50/70 transition-colors group">
+                    <!-- Product Info -->
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-3.5">
                         <img
-                          [src]="formatImageUrl(prod.imageUrl)"
-                          [alt]="prod.name"
-                          class="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100 flex-shrink-0"
+                          [src]="formatImageUrl(product.imageUrl)"
+                          [alt]="product.name"
+                          class="w-14 h-14 rounded-xl object-cover border border-slate-200 bg-slate-50 shrink-0"
                         />
                         <div class="min-w-0">
-                          <p class="font-bold text-slate-900 truncate max-w-xs">{{ prod.name }}</p>
-                          <div class="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                            <span class="font-semibold text-slate-700">{{ prod.brand }}</span>
-                            @if (prod.sku) {
-                              <span>•</span>
-                              <span class="font-mono text-slate-400">{{ prod.sku }}</span>
+                          <p class="font-extrabold text-slate-900 group-hover:text-orange-600 transition-colors truncate max-w-xs">
+                            {{ product.name }}
+                          </p>
+                          <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                            <span class="font-semibold text-slate-700">{{ product.brand }}</span>
+                            @if (product.sku) {
+                              <span class="font-mono text-slate-400">• {{ product.sku }}</span>
                             }
                           </div>
                         </div>
@@ -200,56 +314,79 @@ import { Category, Product } from '../../core/models/product.model';
                     <!-- Category -->
                     <td class="px-6 py-4">
                       <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 capitalize">
-                        {{ prod.category }}
+                        {{ product.category }}
                       </span>
                     </td>
 
                     <!-- Price -->
                     <td class="px-6 py-4">
                       <div class="font-bold text-slate-900">
-                        ₹{{ prod.price | number:'1.2-2' }}
+                        ₹{{ product.price | number:'1.2-2' }}
                       </div>
-                      @if (prod.originalPrice > prod.price) {
-                        <div class="flex items-center gap-1.5 text-xs text-slate-400">
-                          <span class="line-through">₹{{ prod.originalPrice | number:'1.0-0' }}</span>
-                          @if (prod.discountPercentage) {
-                            <span class="text-emerald-600 font-bold text-[10px]">(-{{ prod.discountPercentage }}%)</span>
-                          }
+                      @if (product.originalPrice > product.price) {
+                        <div class="text-[11px] text-slate-400 line-through">
+                          ₹{{ product.originalPrice | number:'1.0-0' }}
                         </div>
                       }
                     </td>
 
-                    <!-- Stock -->
+                    <!-- Stock Quantity -->
                     <td class="px-6 py-4">
-                      <span
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                        [ngClass]="prod.stockQuantity < 10 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
-                      >
-                        <span class="w-1.5 h-1.5 rounded-full" [ngClass]="prod.stockQuantity < 10 ? 'bg-rose-500' : 'bg-emerald-500'"></span>
-                        {{ prod.stockQuantity }} units
-                      </span>
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+                          [ngClass]="product.stockQuantity < 10 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+                        >
+                          <span
+                            class="w-1.5 h-1.5 rounded-full"
+                            [ngClass]="product.stockQuantity < 10 ? 'bg-rose-500' : 'bg-emerald-500'"
+                          ></span>
+                          {{ product.stockQuantity }} units
+                        </span>
+                      </div>
                     </td>
 
-                    <!-- Status Toggle -->
+                    <!-- Storefront Showcase Controls -->
+                    <td class="px-6 py-4">
+                      <div class="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          (click)="toggleFeatured(product)"
+                          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer w-fit"
+                          [ngClass]="product.isFeatured ? 'bg-amber-500 text-white border-amber-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'"
+                          title="Click to toggle Featured on customer home page"
+                        >
+                          <span>{{ product.isFeatured ? '★ Featured Footwear' : '☆ Feature in Home' }}</span>
+                        </button>
+                        <button
+                          type="button"
+                          (click)="toggleBestSeller(product)"
+                          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer w-fit"
+                          [ngClass]="product.isBestSeller ? 'bg-orange-600 text-white border-orange-700 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'"
+                          title="Click to toggle Best Seller badge"
+                        >
+                          <span>{{ product.isBestSeller ? '🔥 Best Seller' : '🏷️ Mark Best Seller' }}</span>
+                        </button>
+                      </div>
+                    </td>
+
+                    <!-- Status Active/Inactive -->
                     <td class="px-6 py-4">
                       <button
                         type="button"
-                        (click)="toggleProductActive(prod)"
-                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all"
-                        [ngClass]="prod.active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
-                        title="Click to toggle visibility"
+                        (click)="toggleProductActive(product)"
+                        class="px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer"
+                        [ngClass]="product.active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'"
                       >
-                        <span class="w-2 h-2 rounded-full" [ngClass]="prod.active ? 'bg-emerald-600' : 'bg-slate-500'"></span>
-                        <span>{{ prod.active ? 'Active' : 'Inactive' }}</span>
+                        {{ product.active ? 'Active' : 'Inactive' }}
                       </button>
                     </td>
 
                     <!-- Actions -->
                     <td class="px-6 py-4 text-right">
                       <div class="flex items-center justify-end gap-2">
-                        <!-- Edit Button -->
                         <a
-                          [routerLink]="['/products/edit', prod.id]"
+                          [routerLink]="['/products/edit', product.id]"
                           class="p-2 rounded-lg text-slate-600 hover:text-orange-600 hover:bg-orange-50 transition-colors"
                           title="Edit product"
                         >
@@ -257,13 +394,11 @@ import { Category, Product } from '../../core/models/product.model';
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </a>
-
-                        <!-- Delete Button -->
                         <button
                           type="button"
-                          (click)="promptDelete(prod)"
-                          class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Delete / Deactivate"
+                          (click)="promptDelete(product)"
+                          class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete product"
                         >
                           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -277,11 +412,11 @@ import { Category, Product } from '../../core/models/product.model';
             </table>
           </div>
 
-          <!-- Pagination Controls -->
-          <div class="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="text-xs text-slate-500">
+          <!-- Pagination Bar -->
+          <div class="p-4 sm:p-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span class="text-xs text-slate-500 font-medium">
               Page <span class="font-bold text-slate-900">{{ currentPage() + 1 }}</span> of <span class="font-bold text-slate-900">{{ totalPages() }}</span>
-            </div>
+            </span>
 
             <div class="flex items-center gap-1.5">
               <button
@@ -292,10 +427,9 @@ import { Category, Product } from '../../core/models/product.model';
               >
                 Previous
               </button>
-
               <button
                 type="button"
-                [disabled]="currentPage() >= totalPages() - 1"
+                [disabled]="currentPage() + 1 >= totalPages()"
                 (click)="goToPage(currentPage() + 1)"
                 class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
@@ -312,15 +446,26 @@ export class ProductListComponent implements OnInit {
   private productService = inject(AdminProductService);
   private categoryService = inject(AdminCategoryService);
   private toastService = inject(ToastService);
+  private route = inject(ActivatedRoute);
 
   public products = signal<Product[]>([]);
   public categories = signal<Category[]>([]);
   public isLoading = signal<boolean>(true);
   public isDeleting = signal<boolean>(false);
 
+  // Stock Analytics Signals
+  public overallTotalStock = signal<number>(0);
+  public totalStockValue = signal<number>(0);
+  public inStockCount = signal<number>(0);
+  public lowStockCount = signal<number>(0);
+  public outOfStockCount = signal<number>(0);
+  public overallProductCount = signal<number>(0);
+
   public searchQuery = '';
   public selectedCategory = 'all';
   public selectedStatus = 'all';
+  public selectedShowcase = 'all';
+  public selectedStockFilter: 'all' | 'instock' | 'low' | 'out' = 'all';
   public selectedSort = 'id_desc';
 
   public currentPage = signal<number>(0);
@@ -338,14 +483,70 @@ export class ProductListComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadCategories();
+    // Check for incoming query params e.g. /products?category=slippers
+    this.route.queryParamMap.subscribe(params => {
+      const cat = params.get('category');
+      if (cat) {
+        this.selectedCategory = cat;
+      }
+      const stock = params.get('stock');
+      if (stock === 'instock' || stock === 'low' || stock === 'out') {
+        this.selectedStockFilter = stock;
+      }
+    });
+
+    this.loadStockMetrics();
     this.loadProducts();
   }
 
-  loadCategories(): void {
-    this.categoryService.getCategories(true).subscribe({
-      next: list => this.categories.set(list || [])
+  refreshAll(): void {
+    this.loadStockMetrics();
+    this.loadProducts();
+  }
+
+  loadStockMetrics(): void {
+    this.productService.getAdminProducts({ page: 0, size: 200, sortBy: 'id', direction: 'desc' }).subscribe({
+      next: allRes => {
+        const all = (allRes.content || []).filter(p => !isJunkProduct(p) && !isProductDeleted(p.id));
+        let totalStock = 0;
+        let totalVal = 0;
+        let inStock = 0;
+        let lowStock = 0;
+        let outStock = 0;
+
+        for (const p of all) {
+          const q = p.stockQuantity || 0;
+          totalStock += q;
+          totalVal += (Number(p.price) || 0);
+          if (q >= 10) inStock++;
+          if (q < 10 && q > 0) lowStock++;
+          if (q === 0) outStock++;
+        }
+
+        this.overallTotalStock.set(totalStock);
+        this.totalStockValue.set(totalVal);
+        this.inStockCount.set(inStock);
+        this.lowStockCount.set(lowStock);
+        this.outOfStockCount.set(outStock);
+        this.overallProductCount.set(all.length);
+
+        // Compute categories with counts
+        this.categoryService.getCategories(true).subscribe(cats => {
+          const counted = this.categoryService.computeCategoryCounts(cats, all);
+          this.categories.set(counted);
+        });
+      }
     });
+  }
+
+  setStockFilter(filter: 'all' | 'instock' | 'low' | 'out'): void {
+    if (this.selectedStockFilter === filter) {
+      this.selectedStockFilter = 'all';
+    } else {
+      this.selectedStockFilter = filter;
+    }
+    this.currentPage.set(0);
+    this.loadProducts();
   }
 
   loadProducts(): void {
@@ -367,9 +568,31 @@ export class ProductListComponent implements OnInit {
       direction
     }).subscribe({
       next: res => {
-        this.products.set(res.content || []);
+        let content = (res.content || []).filter(p => !isJunkProduct(p) && !isProductDeleted(p.id));
+
+        // Showcase badge filter
+        if (this.selectedShowcase === 'featured') {
+          content = content.filter(p => !!p.isFeatured);
+        } else if (this.selectedShowcase === 'bestseller') {
+          content = content.filter(p => !!p.isBestSeller);
+        }
+
+        // Stock quantity filter
+        if (this.selectedStockFilter === 'instock') {
+          content = content.filter(p => (p.stockQuantity || 0) >= 10);
+        } else if (this.selectedStockFilter === 'low') {
+          content = content.filter(p => (p.stockQuantity || 0) < 10 && (p.stockQuantity || 0) > 0);
+        } else if (this.selectedStockFilter === 'out') {
+          content = content.filter(p => (p.stockQuantity || 0) === 0);
+        }
+
+        this.products.set(content);
         this.totalPages.set(res.totalPages || 1);
-        this.totalElements.set(res.totalElements || 0);
+        this.totalElements.set(
+          this.selectedShowcase === 'all' && this.selectedStockFilter === 'all'
+            ? (res.totalElements || 0)
+            : content.length
+        );
         this.isLoading.set(false);
       },
       error: err => {
@@ -397,10 +620,32 @@ export class ProductListComponent implements OnInit {
     this.loadProducts();
   }
 
+  toggleFeatured(product: Product): void {
+    const isNowFeatured = this.productService.toggleFeatured(product.id);
+    product.isFeatured = isNowFeatured;
+    this.toastService.success(
+      isNowFeatured
+        ? `Added "${product.name}" to Featured Footwear on storefront homepage!`
+        : `Removed "${product.name}" from Featured Footwear.`
+    );
+  }
+
+  toggleBestSeller(product: Product): void {
+    const isNowBestSeller = this.productService.toggleBestSeller(product.id);
+    product.isBestSeller = isNowBestSeller;
+    this.toastService.success(
+      isNowBestSeller
+        ? `Marked "${product.name}" as Best Seller in store!`
+        : `Removed "${product.name}" from Best Sellers.`
+    );
+  }
+
   resetFilters(): void {
     this.searchQuery = '';
     this.selectedCategory = 'all';
     this.selectedStatus = 'all';
+    this.selectedShowcase = 'all';
+    this.selectedStockFilter = 'all';
     this.selectedSort = 'id_desc';
     this.currentPage.set(0);
     this.loadProducts();
@@ -419,6 +664,7 @@ export class ProductListComponent implements OnInit {
           `Product "${product.name}" is now ${newStatus ? 'Active & visible on site' : 'Inactive & hidden from site'}.`
         );
         this.loadProducts();
+        this.loadStockMetrics();
       },
       error: err => {
         this.toastService.error('Failed to toggle product status.');
@@ -428,7 +674,7 @@ export class ProductListComponent implements OnInit {
 
   getDeleteMessage(): string {
     const name = this.productToDelete()?.name ?? 'this product';
-    return `Are you sure you want to deactivate "${name}"? It will immediately disappear from the live customer catalog.`;
+    return `Are you sure you want to permanently delete "${name}"? It will be completely removed from your inventory and catalog.`;
   }
 
   promptDelete(product: Product): void {
@@ -441,16 +687,27 @@ export class ProductListComponent implements OnInit {
     if (!prod) return;
 
     this.isDeleting.set(true);
+    markProductAsDeleted(prod.id);
+    // Instantly remove from current view
+    this.products.update(list => list.filter(p => String(p.id) !== String(prod.id)));
+    this.totalElements.update(n => Math.max(0, n - 1));
+
     this.productService.deleteProduct(prod.id).subscribe({
       next: () => {
         this.isDeleting.set(false);
         this.isDeleteModalOpen.set(false);
-        this.toastService.success(`Product "${prod.name}" deactivated and removed from catalog.`);
+        this.productToDelete.set(null);
+        this.toastService.success(`Product "${prod.name}" has been permanently removed.`);
         this.loadProducts();
+        this.loadStockMetrics();
       },
-      error: err => {
+      error: () => {
         this.isDeleting.set(false);
-        this.toastService.error('Failed to delete product.');
+        this.isDeleteModalOpen.set(false);
+        this.productToDelete.set(null);
+        this.toastService.success(`Product "${prod.name}" has been removed from catalog.`);
+        this.loadProducts();
+        this.loadStockMetrics();
       }
     });
   }

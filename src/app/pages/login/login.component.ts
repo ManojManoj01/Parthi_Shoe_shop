@@ -179,8 +179,8 @@ export class LoginComponent {
   public errorMessage: string | null = null;
 
   public loginForm: FormGroup = this.fb.group({
-    usernameOrEmail: ['admin', [Validators.required]],
-    password: ['Password@123', [Validators.required]],
+    usernameOrEmail: ['', [Validators.required]],
+    password: ['', [Validators.required]],
     rememberMe: [true]
   });
 

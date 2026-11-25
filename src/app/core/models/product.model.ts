@@ -20,6 +20,8 @@ export interface Product {
   discountPercentage?: number;
   rating?: number;
   active: boolean;
+  isFeatured?: boolean;
+  isBestSeller?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -40,6 +42,8 @@ export interface ProductRequest {
   discountPercentage?: number;
   rating?: number;
   active: boolean;
+  isFeatured?: boolean;
+  isBestSeller?: boolean;
 }
 
 export interface ProductPageResponse {
@@ -60,6 +64,8 @@ export interface Category {
   displayOrder?: number;
   active: boolean;
   productCount?: number;
+  itemCount?: number;
+  stockCount?: number;
 }
 
 export interface CategoryRequest {
@@ -77,6 +83,11 @@ export interface DashboardStats {
   totalCategories: number;
   lowStockCount: number;
   chappalsInStock: number;
+  overallTotalStock?: number;
+  totalStockValue?: number;
+  totalInventoryValue?: number;
+  inStockCount?: number;
+  outOfStockCount?: number;
 }
 
 export interface ImageUploadResponse {

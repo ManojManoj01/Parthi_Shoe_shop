@@ -1,9 +1,13 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { AdminProductService } from '../../core/services/product.service';
+import { AdminCategoryService } from '../../core/services/category.service';
 import { ToastService } from '../../core/services/toast.service';
-import { DashboardStats, Product } from '../../core/models/product.model';
+import { DashboardStats, Product, Category } from '../../core/models/product.model';
+import { isJunkProduct, isProductDeleted } from '../../core/services/fallback-products';
 
 @Component({
   selector: 'app-dashboard',
@@ -18,11 +22,11 @@ import { DashboardStats, Product } from '../../core/models/product.model';
             <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wider uppercase bg-orange-600/90 text-white">
               Store Command Center
             </span>
-            <span class="text-xs text-slate-300">Live Supabase Sync</span>
+            <span class="text-xs text-slate-300">Live Database Sync</span>
           </div>
-          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Footwear Inventory Overview</h2>
+          <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Footwear Inventory & Stock Overview</h2>
           <p class="text-sm text-slate-300 mt-1 max-w-xl">
-            Real-time management for StepStyle footwear and Palani handcrafted chappals.
+            Real-time management for StepStyle footwear, Palani handcrafted slippers, categories, and store-wide stock.
           </p>
         </div>
 
@@ -31,7 +35,7 @@ import { DashboardStats, Product } from '../../core/models/product.model';
             type="button"
             (click)="loadData()"
             [disabled]="isLoading()"
-            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-white text-xs font-semibold border border-slate-700 backdrop-blur-sm transition-all"
+            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-white text-xs font-semibold border border-slate-700 backdrop-blur-sm transition-all cursor-pointer"
           >
             <svg class="w-4 h-4" [ngClass]="{ 'animate-spin': isLoading() }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -50,6 +54,61 @@ import { DashboardStats, Product } from '../../core/models/product.model';
         </div>
 
         <div class="absolute -right-20 -top-20 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none"></div>
+      </div>
+
+      <!-- MODULE 1: OVERALL TOTAL STOCK & INVENTORY VALUATION HERO MODULE -->
+      <div class="bg-gradient-to-br from-slate-900 via-neutral-900 to-slate-950 p-6 sm:p-7 rounded-3xl text-white shadow-xl border border-slate-800 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-5 relative z-10 border-b border-slate-800/80 pb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <h3 class="text-sm font-extrabold uppercase tracking-wider text-orange-400">Inventory Stock & Valuation Analytics</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Aggregate stock across all categories, warehouse shelves, and retail inventory</p>
+          </div>
+          <a
+            routerLink="/products"
+            class="text-xs font-bold text-orange-400 hover:text-orange-300 inline-flex items-center gap-1.5 transition-colors"
+          >
+            <span>Manage Product Stock</span>
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
+          <!-- 1. Overall Total Stock Units -->
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-orange-500/40 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs uppercase font-extrabold tracking-wider text-orange-400">Overall Total Stock</span>
+              <div class="w-8 h-8 rounded-xl bg-orange-600/20 text-orange-400 flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-3xl sm:text-4xl font-black text-white tracking-tight">{{ displayTotalStock | number }}</span>
+              <span class="text-xs text-orange-200 font-bold uppercase tracking-wide">Units</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Total footwear pairs in catalog</p>
+          </div>
+
+          <!-- 2. Total Inventory Valuation in Rupees -->
+          <div class="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs uppercase font-extrabold tracking-wider text-emerald-400">Total Stock Value</span>
+              <div class="w-8 h-8 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-black text-sm">
+                ₹
+              </div>
+            </div>
+            <div class="flex items-baseline gap-1">
+              <span class="text-2xl sm:text-3xl font-black text-white tracking-tight">₹{{ displayStockValue | number:'1.0-0' }}</span>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Sum of all catalog product prices</p>
+          </div>
+        </div>
       </div>
 
       <!-- Live Metric Cards Grid -->
@@ -73,7 +132,7 @@ import { DashboardStats, Product } from '../../core/models/product.model';
         <!-- 2. Total Shoes -->
         <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div class="flex items-center justify-between text-slate-500 mb-3">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Shoes</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Shoes</span>
             <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -86,10 +145,10 @@ import { DashboardStats, Product } from '../../core/models/product.model';
           </div>
         </div>
 
-        <!-- 3. Total Slippers & Chappals -->
+        <!-- 3. Total Slippers -->
         <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div class="flex items-center justify-between text-slate-500 mb-3">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Chappals & Slippers</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Slippers</span>
             <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -102,10 +161,10 @@ import { DashboardStats, Product } from '../../core/models/product.model';
           </div>
         </div>
 
-        <!-- 4. HIGHLIGHT CARD: CHAPPAL STOCK INVENTORY (Live derived) -->
+        <!-- 4. HIGHLIGHT CARD: SLIPPER STOCK INVENTORY -->
         <div class="bg-gradient-to-br from-orange-500 to-amber-600 text-white rounded-2xl p-5 shadow-lg shadow-orange-500/25 relative overflow-hidden sm:col-span-2 xl:col-span-1 border border-orange-400">
           <div class="flex items-center justify-between mb-3 text-orange-100">
-            <span class="text-xs font-extrabold uppercase tracking-wider">Chappal Stock</span>
+            <span class="text-xs font-extrabold uppercase tracking-wider">Slipper Stock</span>
             <span class="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">LIVE UNITS</span>
           </div>
           <div class="flex items-baseline gap-2">
@@ -115,7 +174,7 @@ import { DashboardStats, Product } from '../../core/models/product.model';
           <p class="text-[11px] text-orange-100/90 mt-1 font-medium">Handcrafted & Ortho units</p>
         </div>
 
-        <!-- 5. Total Categories -->
+        <!-- 5. Total Categories (How many categories) -->
         <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div class="flex items-center justify-between text-slate-500 mb-3">
             <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Categories</span>
@@ -126,8 +185,8 @@ import { DashboardStats, Product } from '../../core/models/product.model';
             </div>
           </div>
           <div class="flex items-baseline gap-2">
-            <span class="text-3xl font-black text-slate-900">{{ stats()?.totalCategories ?? 0 }}</span>
-            <span class="text-xs text-teal-600 font-medium">Live groups</span>
+            <span class="text-3xl font-black text-slate-900">{{ categories().length }}</span>
+            <span class="text-xs text-teal-600 font-medium">Collections</span>
           </div>
         </div>
 
@@ -152,6 +211,96 @@ import { DashboardStats, Product } from '../../core/models/product.model';
         </div>
       </div>
 
+      <!-- MODULE 2: CATEGORY DISTRIBUTION & PRODUCT COUNTS ("HOW MANY CATEGORIES") -->
+      <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-bold shrink-0">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-lg font-black text-slate-900 tracking-tight">Footwear Category Breakdown</h3>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-orange-100 text-orange-800">
+                  Total: {{ categories().length }} Categories
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Overview of all collections, how many categories are configured, and products assigned to each category.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <a
+              routerLink="/categories"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+            >
+              <span>+ Add / Manage Categories</span>
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+            <a
+              routerLink="/products/add"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs transition-colors"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Assign Product</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Category Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          @for (cat of categories(); track cat.id) {
+            <div class="group relative rounded-2xl p-4 border border-slate-200/90 hover:border-orange-500/80 hover:shadow-md transition-all bg-gradient-to-br from-slate-50/50 to-white flex flex-col justify-between">
+              <div>
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <div>
+                    <h4 class="font-bold text-slate-900 group-hover:text-orange-600 transition-colors text-sm">
+                      {{ cat.name }}
+                    </h4>
+                    <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                      /{{ cat.slug }}
+                    </span>
+                  </div>
+                  <span
+                    class="px-2.5 py-0.5 rounded-full text-[11px] font-black"
+                    [ngClass]="(cat.productCount || 0) > 0 ? 'bg-orange-50 text-orange-700 border border-orange-200' : 'bg-slate-100 text-slate-500'"
+                  >
+                    {{ cat.productCount || 0 }} {{ (cat.productCount || 0) === 1 ? 'Product' : 'Products' }}
+                  </span>
+                </div>
+                @if (cat.description) {
+                  <p class="text-xs text-slate-500 line-clamp-2 mt-1">{{ cat.description }}</p>
+                }
+              </div>
+
+              <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-700">
+                  {{ cat.stockCount || 0 }} units in stock
+                </span>
+                <a
+                  [routerLink]="['/products']"
+                  [queryParams]="{ category: cat.slug }"
+                  class="text-orange-600 hover:text-orange-700 font-extrabold inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform text-[11px]"
+                >
+                  <span>View Products</span>
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
       <!-- Quick Action Shortcuts -->
       <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
         <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -172,7 +321,7 @@ import { DashboardStats, Product } from '../../core/models/product.model';
             </div>
             <div>
               <p class="text-sm font-bold text-slate-900 group-hover:text-orange-600">Add New Footwear</p>
-              <p class="text-xs text-slate-500">Upload photo & prices</p>
+              <p class="text-xs text-slate-500">Upload photo, set category & stock</p>
             </div>
           </a>
 
@@ -284,7 +433,7 @@ import { DashboardStats, Product } from '../../core/models/product.model';
                         <img
                           [src]="formatImageUrl(product.imageUrl)"
                           [alt]="product.name"
-                          class="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-50 flex-shrink-0"
+                          class="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-50 shrink-0"
                         />
                         <div class="min-w-0">
                           <p class="font-bold text-slate-900 truncate max-w-xs">{{ product.name }}</p>
@@ -352,11 +501,21 @@ import { DashboardStats, Product } from '../../core/models/product.model';
 })
 export class DashboardComponent implements OnInit {
   private productService = inject(AdminProductService);
+  private categoryService = inject(AdminCategoryService);
   private toastService = inject(ToastService);
 
   public stats = signal<DashboardStats | null>(null);
+  public categories = signal<Category[]>([]);
   public recentProducts = signal<Product[]>([]);
   public isLoading = signal<boolean>(true);
+
+  get displayTotalStock(): number {
+    return this.stats()?.overallTotalStock ?? 0;
+  }
+
+  get displayStockValue(): number {
+    return this.stats()?.totalStockValue ?? 0;
+  }
 
   formatImageUrl(url: string | null | undefined): string {
     return this.productService.formatImageUrl(url);
@@ -369,24 +528,44 @@ export class DashboardComponent implements OnInit {
   loadData(): void {
     this.isLoading.set(true);
 
-    this.productService.getDashboardStats().subscribe({
-      next: data => {
-        this.stats.set(data);
-      },
-      error: err => {
-        console.error('Failed to load dashboard stats:', err);
-        this.toastService.error('Failed to load dashboard statistics from Spring Boot backend.');
-      }
-    });
+    // Consolidated sync using forkJoin to load live data directly from Supabase
+    forkJoin({
+      stats: this.productService.getDashboardStats().pipe(catchError(() => of(null))),
+      productsRes: this.productService.getAdminProducts({ page: 0, size: 200, sortBy: 'id', direction: 'desc' }).pipe(catchError(() => of({ content: [] } as any))),
+      categories: this.categoryService.getCategories(true).pipe(catchError(() => of([])))
+    }).subscribe({
+      next: ({ stats, productsRes, categories }) => {
+        const products: Product[] = (productsRes?.content || []).filter((p: Product) => !isJunkProduct(p) && !isProductDeleted(p.id));
+        this.recentProducts.set(products.slice(0, 6));
 
-    this.productService.getAdminProducts({ page: 0, size: 6, sortBy: 'id', direction: 'desc' }).subscribe({
-      next: res => {
-        this.recentProducts.set(res.content || []);
+        const liveMetrics = this.productService.calculateOverallStockMetrics(products);
+
+        const slippers = products.filter((p: Product) => (p.category || '').toLowerCase() === 'chappals' || (p.category || '').toLowerCase() === 'slippers');
+        const shoes = products.filter((p: Product) => (p.category || '').toLowerCase() !== 'chappals' && (p.category || '').toLowerCase() !== 'slippers');
+        const chappalStock = products.filter((p: Product) => (p.category || '').toLowerCase().includes('chappal')).reduce((sum: number, p: Product) => sum + (Number(p.stockQuantity) || 0), 0);
+
+        const counted = this.categoryService.computeCategoryCounts(categories, products);
+        this.categories.set(counted);
+
+        const finalStats: DashboardStats = {
+          totalProducts: stats?.totalProducts || products.length,
+          totalShoes: stats?.totalShoes || shoes.length,
+          totalChappalsAndSlippers: stats?.totalChappalsAndSlippers || slippers.length,
+          totalCategories: counted.length,
+          lowStockCount: stats?.lowStockCount ?? liveMetrics.lowStockCount,
+          chappalsInStock: stats?.chappalsInStock || chappalStock,
+          overallTotalStock: (liveMetrics.overallTotalStock > 0) ? liveMetrics.overallTotalStock : (stats?.overallTotalStock ?? 0),
+          totalStockValue: (liveMetrics.totalStockValue > 0) ? liveMetrics.totalStockValue : (stats?.totalStockValue ?? 0),
+          totalInventoryValue: ((liveMetrics.totalInventoryValue ?? 0) > 0) ? liveMetrics.totalInventoryValue : (stats?.totalInventoryValue ?? 0),
+          inStockCount: liveMetrics.inStockCount,
+          outOfStockCount: liveMetrics.outOfStockCount
+        };
+
+        this.stats.set(finalStats);
         this.isLoading.set(false);
       },
-      error: err => {
+      error: () => {
         this.isLoading.set(false);
-        console.error('Failed to load recent products:', err);
       }
     });
   }
