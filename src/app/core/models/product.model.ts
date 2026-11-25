@@ -1,85 +1,58 @@
 export interface ProductColor {
   name: string;
-  hex?: string;
+  hex: string;
+}
+
+export interface ProductSpecification {
+  material?: string;
+  soleMaterial?: string;
+  closure?: string;
+  occasion?: string;
+  careInstructions?: string;
+  warranty?: string;
+  origin?: string;
 }
 
 export interface Product {
-  id: number | string;
+  id: string;
   name: string;
-  sku?: string;
   brand: string;
-  description: string;
+  category: string;
   price: number;
   originalPrice: number;
-  category: string;
-  availableSizes: string[] | number[];
-  availableColors: string[];
-  stockQuantity: number;
-  imageUrl?: string;
-  additionalImages?: string[];
-  discountPercentage?: number;
-  rating?: number;
-  active: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface ProductRequest {
-  name: string;
-  sku?: string;
-  brand: string;
+  discountPercentage: number;
   description: string;
-  price: number;
-  originalPrice: number;
-  category: string;
-  availableSizes: string[];
-  availableColors: string[];
-  stockQuantity: number;
-  imageUrl?: string;
-  additionalImages?: string[];
-  discountPercentage?: number;
-  rating?: number;
-  active: boolean;
-}
-
-export interface ProductPageResponse {
-  content: Product[];
-  pageNumber: number;
-  pageSize: number;
-  totalElements: number;
-  totalPages: number;
-  last: boolean;
+  images: string[];
+  sizes: number[];
+  colors: ProductColor[];
+  rating: number;
+  reviewCount: number;
+  inStock: boolean;
+  stockCount: number;
+  isFeatured?: boolean;
+  isNewArrival?: boolean;
+  isBestSeller?: boolean;
+  isSpecialOffer?: boolean;
+  features?: string[];
+  specifications?: ProductSpecification;
 }
 
 export interface Category {
-  id: number;
+  id: string;
   name: string;
   slug: string;
-  description?: string;
-  imageUrl?: string;
-  displayOrder?: number;
-  active: boolean;
-  productCount?: number;
+  image: string;
+  description: string;
+  itemCount: number;
 }
 
-export interface CategoryRequest {
-  name: string;
-  slug?: string;
-  description?: string;
-  imageUrl?: string;
-  displayOrder?: number;
-}
-
-export interface DashboardStats {
-  totalProducts: number;
-  totalShoes: number;
-  totalChappalsAndSlippers: number;
-  totalCategories: number;
-  lowStockCount: number;
-  chappalsInStock: number;
-}
-
-export interface ImageUploadResponse {
-  imageUrl: string;
-  message: string;
+export interface FilterCriteria {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sizes?: number[];
+  brands?: string[];
+  searchQuery?: string;
+  sortBy?: 'price-low' | 'price-high' | 'newest' | 'popularity' | 'discount';
+  inStockOnly?: boolean;
 }

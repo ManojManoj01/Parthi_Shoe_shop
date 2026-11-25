@@ -44,15 +44,31 @@ app.use((req, res, next) => {
     .then((response) =>
       response ? writeResponseToNodeResponse(response, res) : next(),
     )
-    .catch(next);
+    .catch((err) => {
+      // Ignore AbortError when client closes, refreshes, or cancels connection
+      if (err?.name === 'AbortError' || req.destroyed || res.writableEnded) {
+        return;
+      }
+      next(err);
+    });
+});
+
+/**
+ * Global Express error handling middleware to suppress aborted client requests
+ */
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.name === 'AbortError' || req.destroyed || res.writableEnded) {
+    return;
+  }
+  next(err);
 });
 
 /**
  * Start the server if this module is the main entry point, or it is ran via PM2.
- * The server listens on the port defined by the `PORT` environment variable, or defaults to 4201.
+ * The server listens on the port defined by the `PORT` environment variable, or defaults to 4000.
  */
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
-  const port = process.env['PORT'] || 4201;
+  const port = process.env['PORT'] || 4000;
   app.listen(port, (error) => {
     if (error) {
       throw error;

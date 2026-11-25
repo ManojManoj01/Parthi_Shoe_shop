@@ -2,31 +2,35 @@ import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
-import { AdminAuthService } from '../services/auth.service';
-import { ToastService } from '../services/toast.service';
+import { AuthService } from '../services/auth.service';
+import { environment } from '../../../environments/environment';
 
-export const adminAuthInterceptor: HttpInterceptorFn = (req, next) => {
-  const authService = inject(AdminAuthService);
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const authService = inject(AuthService);
   const router = inject(Router);
-  const toastService = inject(ToastService);
   const token = authService.token();
 
-  let modifiedReq = req;
-  if (token && !req.headers.has('Authorization')) {
-    modifiedReq = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`
-      }
+  const isApiRequest = req.url.startsWith(environment.apiUrl);
+  const isAuthPublicEndpoint =
+    req.url.includes('/auth/login') ||
+    req.url.includes('/auth/signup') ||
+    req.url.includes('/auth/register') ||
+    req.url.includes('/auth/forgot-password') ||
+    req.url.includes('/auth/reset-password');
+
+  let authReq = req;
+  if (isApiRequest) {
+    authReq = req.clone({
+      withCredentials: true,
+      ...(token ? { setHeaders: { Authorization: `Bearer ${token}` } } : {})
     });
   }
 
-  return next(modifiedReq).pipe(
+  return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401) {
-        toastService.error('Session expired or unauthorized. Please log in again.');
+      if (error.status === 401 && !isAuthPublicEndpoint) {
         authService.logout();
-      } else if (error.status === 403) {
-        toastService.error('Access denied: You do not have administrator permissions.');
+        router.navigate(['/login']);
       }
       return throwError(() => error);
     })
