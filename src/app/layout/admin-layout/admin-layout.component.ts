@@ -110,7 +110,7 @@ import { ToastComponent } from '../../shared/components/toast/toast.component';
 
           <!-- Customer Website Link -->
           <a
-            href="http://localhost:4200"
+            [href]="customerWebsiteUrl()"
             target="_blank"
             class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-emerald-400 hover:bg-emerald-950/40 border border-emerald-900/40 transition-all group"
           >
@@ -172,7 +172,7 @@ import { ToastComponent } from '../../shared/components/toast/toast.component';
             <div class="hidden sm:flex items-center gap-2">
               <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                Supabase Connected
+                Database Connected
               </span>
               <span class="text-xs text-slate-400 font-medium">Spring Boot REST API Active</span>
             </div>
@@ -206,6 +206,15 @@ export class AdminLayoutComponent {
   private router = inject(Router);
 
   public isMobileMenuOpen = false;
+
+  customerWebsiteUrl(): string {
+    const user = this.authService.currentUser();
+    const token = this.authService.token();
+    if (user && token) {
+      return `http://localhost:4200/?sso_token=${encodeURIComponent(token)}&sso_user=${encodeURIComponent(JSON.stringify(user))}`;
+    }
+    return 'http://localhost:4200';
+  }
 
   userName(): string {
     const user = this.authService.currentUser();

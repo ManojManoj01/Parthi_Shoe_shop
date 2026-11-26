@@ -26,7 +26,7 @@ const MOCK_USERS: Array<User & { passwordHash: string }> = [
 ];
 =======
 import { Router } from '@angular/router';
-import { Observable, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { AdminUser, LoginCredentials, AuthResponse } from '../models/auth.model';
 import { environment } from '../../../environments/environment';
@@ -80,14 +80,38 @@ export class AdminAuthService {
     return !!token && !!user && user.role === 'ROLE_ADMIN';
   });
 
-  private authApiUrl = `${environment.apiUrl}/auth`;
+  private adminAuthApiUrl = `${environment.apiUrl}/admin`;
+
+  constructor() {
+    if (this.isBrowser) {
+      const user = this.currentUserSignal();
+      const token = this.tokenSignal();
+      if (user && token) {
+        try {
+          document.cookie = `stepstyle_admin_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=2592000; SameSite=Lax`;
+          document.cookie = `stepstyle_admin_token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`;
+        } catch (e) {}
+      }
+    }
+  }
 
   private getInitialUser(): AdminUser | null {
     if (!this.isBrowser) return null;
     try {
+<<<<<<< HEAD
       const stored = localStorage.getItem(ADMIN_STORAGE_KEY);
 >>>>>>> 4612e5dfee97dff303e5e71abbdf1dcb739d2fe1
       return stored ? JSON.parse(stored) : null;
+=======
+      const stored = localStorage.getItem(ADMIN_STORAGE_KEY) || sessionStorage.getItem(ADMIN_STORAGE_KEY);
+      if (!stored) return null;
+      const user: AdminUser = JSON.parse(stored);
+      if (user.role !== 'ROLE_ADMIN') {
+        this.clearStorage();
+        return null;
+      }
+      return user;
+>>>>>>> 8908863454f641b1de46fa560c32acac44ccf7bf
     } catch {
       return null;
     }
@@ -97,10 +121,14 @@ export class AdminAuthService {
     if (!this.isBrowser) return null;
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
       return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
 =======
       return localStorage.getItem(ADMIN_TOKEN_KEY);
 >>>>>>> 4612e5dfee97dff303e5e71abbdf1dcb739d2fe1
+=======
+      return localStorage.getItem(ADMIN_TOKEN_KEY) || sessionStorage.getItem(ADMIN_TOKEN_KEY);
+>>>>>>> 8908863454f641b1de46fa560c32acac44ccf7bf
     } catch {
       return null;
     }
@@ -127,7 +155,8 @@ export class AdminAuthService {
       password: credentials.password
     };
 
-    return this.http.post<any>(`${this.authApiUrl}/login`, payload).pipe(
+    // Dedicated admin-only endpoint: POST /api/admin/login
+    return this.http.post<any>(`${this.adminAuthApiUrl}/login`, payload).pipe(
       map(res => {
 <<<<<<< HEAD
         const backendUser = res?.user || res?.data || {};
@@ -209,16 +238,16 @@ export class AdminAuthService {
         const rawUser = res?.user || res?.data || {};
         const role = String(rawUser.role || '');
 
-        if (role !== 'ROLE_ADMIN' && role !== 'admin') {
+        if (role !== 'ROLE_ADMIN') {
           throw new Error('Access denied. Administrator privileges required.');
         }
 
         const adminUser: AdminUser = {
-          id: rawUser.id || 1,
+          id: rawUser.id,
           username: rawUser.username || credentials.usernameOrEmail,
           email: rawUser.email || '',
-          firstName: rawUser.firstName || 'Admin',
-          lastName: rawUser.lastName || '',
+          firstName: rawUser.firstName || 'System',
+          lastName: rawUser.lastName || 'Administrator',
           role: 'ROLE_ADMIN'
         };
 
@@ -259,15 +288,17 @@ export class AdminAuthService {
 =======
         this.saveSession(authRes.user, authRes.accessToken, credentials.rememberMe ?? true);
       }),
-      catchError((err: any) => {
+      catchError((err: HttpErrorResponse | Error) => {
         this.isLoading.set(false);
-        let errorMsg = 'Invalid username/email or password.';
-        if (err.message && err.message.includes('Administrator privileges required')) {
+        let errorMsg = 'Invalid admin username/email or password.';
+        if (err instanceof HttpErrorResponse) {
+          if (err.error?.message) {
+            errorMsg = err.error.message;
+          } else if (err.status === 0) {
+            errorMsg = 'Cannot connect to Spring Boot backend (http://localhost:8080). Please ensure server is running.';
+          }
+        } else if (err.message) {
           errorMsg = err.message;
-        } else if (err.error?.message) {
-          errorMsg = err.error.message;
-        } else if (err.status === 0) {
-          errorMsg = 'Cannot connect to Spring Boot backend (http://localhost:8080). Please ensure server is running.';
         }
 >>>>>>> 4612e5dfee97dff303e5e71abbdf1dcb739d2fe1
         return throwError(() => new Error(errorMsg));
@@ -342,15 +373,30 @@ export class AdminAuthService {
   }
 =======
   public logout(): void {
-    if (this.isBrowser) {
-      localStorage.removeItem(ADMIN_STORAGE_KEY);
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      sessionStorage.removeItem(ADMIN_STORAGE_KEY);
-      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-    }
+    const hadToken = !!this.tokenSignal();
+    this.clearStorage();
     this.currentUserSignal.set(null);
     this.tokenSignal.set(null);
+
+    if (hadToken) {
+      this.http.post(`${this.adminAuthApiUrl}/logout`, {}).pipe(
+        catchError(() => of(null))
+      ).subscribe();
+    }
+
     this.router.navigate(['/login']);
+  }
+
+  private clearStorage(): void {
+    if (!this.isBrowser) return;
+    localStorage.removeItem(ADMIN_STORAGE_KEY);
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    sessionStorage.removeItem(ADMIN_STORAGE_KEY);
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    try {
+      document.cookie = 'stepstyle_admin_user=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'stepstyle_admin_token=; path=/; max-age=0; SameSite=Lax';
+    } catch (e) {}
   }
 
   private saveSession(user: AdminUser, token: string, remember: boolean): void {
@@ -359,8 +405,19 @@ export class AdminAuthService {
 
     if (this.isBrowser) {
       const storage = remember ? localStorage : sessionStorage;
+      const otherStorage = remember ? sessionStorage : localStorage;
+
       storage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(user));
       storage.setItem(ADMIN_TOKEN_KEY, token);
+
+      otherStorage.removeItem(ADMIN_STORAGE_KEY);
+      otherStorage.removeItem(ADMIN_TOKEN_KEY);
+
+      try {
+        const maxAge = remember ? 60 * 60 * 24 * 30 : 60 * 60 * 24;
+        document.cookie = `stepstyle_admin_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        document.cookie = `stepstyle_admin_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      } catch (e) {}
     }
   }
 >>>>>>> 4612e5dfee97dff303e5e71abbdf1dcb739d2fe1

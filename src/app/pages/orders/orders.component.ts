@@ -48,7 +48,7 @@ import { Order } from '../../core/models/order.model';
             </div>
             <h3 class="text-base font-bold text-slate-900">No customer orders placed yet</h3>
             <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-              When shoppers purchase footwear or chappals on your store (http://localhost:4200), orders will appear here automatically.
+              When shoppers purchase footwear or slippers on your store (http://localhost:4200), orders will appear here automatically.
             </p>
           </div>
         } @else {
