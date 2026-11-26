@@ -1,13 +1,17 @@
 <!-- Toast notifications portal -->
 <app-toast></app-toast>
 
-<!-- Top Announcement & Main Navigation with Logo -->
-<app-navbar></app-navbar>
+<!-- Top Announcement & Main Navigation with Logo (shown only after sign-in) -->
+@if (showStoreChrome()) {
+  <app-navbar></app-navbar>
+}
 
 <!-- Main Page Router View -->
 <main class="flex-1 min-h-[calc(100vh-160px)]">
   <router-outlet></router-outlet>
 </main>
 
-<!-- Footer with Store Location, Links & Newsletter -->
-<app-footer></app-footer>
+<!-- Footer with Store Location, Links & Newsletter (shown only after sign-in) -->
+@if (showStoreChrome()) {
+  <app-footer></app-footer>
+}

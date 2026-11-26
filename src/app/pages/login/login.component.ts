@@ -215,16 +215,8 @@ export class LoginComponent {
     }).subscribe({
       next: (res) => {
         this.isLoading.set(false);
-        if (res.user.role === 'admin') {
-          this.toastService.success(`Welcome Administrator, ${res.user.firstName}! Signed in with Admin Account.`);
-          try {
-            document.cookie = `stepstyle_admin_user=${encodeURIComponent(JSON.stringify(res.user))}; path=/; max-age=2592000; SameSite=Lax`;
-            document.cookie = `stepstyle_admin_token=${encodeURIComponent(res.token)}; path=/; max-age=2592000; SameSite=Lax`;
-          } catch (e) {}
-        } else {
-          this.toastService.success(`Welcome back, ${res.user.firstName}!`);
-        }
-        
+        this.toastService.success(`Welcome back, ${res.user.firstName}!`);
+
         const returnUrl = this.route.snapshot.queryParams['returnUrl'];
         if (returnUrl) {
           this.router.navigateByUrl(returnUrl);

@@ -1,12 +1,14 @@
-import { $i as unwrapSafeValue, $r as findLocaleData, Ac as Injector, Al as ɵɵdefineInjectable, Bn as LOCALE_ID, Bo as ɵɵinjectAttribute, Dl as stringify, Dn as Host, Ei as performanceMarkFeature, En as ElementRef, Er as ViewContainerRef, Fn as Injectable, Hs as ɵɵstyleProp, In as Input, Jr as createNgModule, Kc as RuntimeError, O as booleanAttribute, Oc as INTERNAL_APPLICATION_ERROR_HANDLER, Pi as registerLocaleData$1, Pl as ɵɵinject, Pn as Inject, Qn as Optional, Rc as NgZone, Tc as IMAGE_CONFIG_DEFAULTS, Vn as LocaleDataIndex, Wi as setClassMetadata, Xc as Version, Zn as NgModuleRef$1, _c as DOCUMENT, al as formatRuntimeError, ao as ɵɵdefineNgModule, bi as isSubscribable, co as ɵɵdirectiveInject, di as getLocaleCurrencyCode$1, dl as inject, dr as Service, er as Pipe, fi as getLocalePluralCase$1, io as ɵɵdefineDirective, ir as Renderer2, jl as ɵɵdefineInjector, jo as ɵɵgetInheritedFactory, kc as InjectionToken, la as ɵɵNgOnChangesFeature, m as KeyValueDiffers, ml as isSignal, mn as DEFAULT_CURRENCY_CODE, nn as Attribute, oo as ɵɵdefinePipe, or as RendererStyleFlags2, p as IterableDiffers, qn as NgModule, qt as untracked, r as ChangeDetectorRef, rt as numberAttribute, so as ɵɵdefineService, tn as ApplicationRef, vc as DestroyRef, vr as TemplateRef, wc as IMAGE_CONFIG, wn as Directive, yi as isPromise } from "./core-Bfwnsk4L.js";
-import { Wn as Subject } from "./zipWith-llrjS8GZ.js";
-import { o as PlatformLocation } from "./_xhr-chunk-BAX-lOkS.js";
+import { t as require_cjs } from "./rxjs.js";
+import { An as formatRuntimeError, D as DestroyRef, H as INTERNAL_APPLICATION_ERROR_HANDLER, L as IMAGE_CONFIG, R as IMAGE_CONFIG_DEFAULTS, T as DOCUMENT, U as InjectionToken, W as Injector, Wi as stringify, Wr as isSignal, _ as untracked, aa as ɵɵdefineInjectable, br as inject, et as NgZone, la as ɵɵinject, lt as RuntimeError, mt as Version, oa as ɵɵdefineInjector } from "./_resource-chunk-CN1dgjig.js";
+import { Ai as setClassMetadata, Bn as Pipe, Dn as LocaleDataIndex, En as LOCALE_ID, Eo as ɵɵinjectAttribute, Ga as ɵɵdefineNgModule, Ht as Attribute, Ja as ɵɵdirectiveInject, Ka as ɵɵdefinePipe, Kn as RendererStyleFlags2, Ln as NgModuleRef$1, Nn as NgModule, O as booleanAttribute, Os as ɵɵstyleProp, Pr as createNgModule, Qr as getLocalePluralCase$1, Rn as Optional, Sn as Input, Wa as ɵɵdefineDirective, Wn as Renderer2, Yi as ɵɵNgOnChangesFeature, Zn as Service, Zr as getLocaleCurrencyCode$1, _o as ɵɵgetInheritedFactory, ai as isPromise, bi as registerLocaleData$1, bn as Inject, en as DEFAULT_CURRENCY_CODE, fi as performanceMarkFeature, fn as ElementRef, fr as ViewContainerRef, ir as TemplateRef, m as KeyValueDiffers, oi as isSubscribable, p as IterableDiffers, pn as Host, qa as ɵɵdefineService, r as ChangeDetectorRef, rt as numberAttribute, un as Directive, xn as Injectable, zi as unwrapSafeValue, zr as findLocaleData } from "./core-BdM0sMyZ.js";
+import { o as PlatformLocation } from "./_xhr-chunk-DbYzHiLc.js";
 //#region node_modules/@angular/common/fesm2022/_location-chunk.mjs
 /**
 * @license Angular v22.2.3
 * (c) 2010-2026 Google LLC. https://angular.dev/
 * License: MIT
 */
+var import_cjs = require_cjs();
 function joinWithSlash(start, end) {
 	if (!start) return end;
 	if (!end) return start;
@@ -164,7 +166,7 @@ function extractUrlPath(url) {
 	return url.slice(0, pathEnd);
 }
 var Location = class Location {
-	_subject = new Subject();
+	_subject = new import_cjs.Subject();
 	_basePath;
 	_locationStrategy;
 	_urlChangeListeners = [];
@@ -3195,74 +3197,9 @@ var ViewportScroller = class ViewportScroller {
 	static ɵprov = /* @__PURE__ */ ɵɵdefineInjectable({
 		token: ViewportScroller,
 		providedIn: "root",
-		factory: () => new BrowserViewportScroller(inject(DOCUMENT), window)
+		factory: () => new NullViewportScroller()
 	});
 };
-var BrowserViewportScroller = class {
-	document;
-	window;
-	offset = () => [0, 0];
-	constructor(document, window) {
-		this.document = document;
-		this.window = window;
-	}
-	setOffset(offset) {
-		if (Array.isArray(offset)) this.offset = () => offset;
-		else this.offset = offset;
-	}
-	getScrollPosition() {
-		return [this.window.scrollX, this.window.scrollY];
-	}
-	scrollToPosition(position, options) {
-		this.window.scrollTo({
-			...options,
-			left: position[0],
-			top: position[1]
-		});
-	}
-	scrollToAnchor(target, options) {
-		const elSelected = findAnchorFromDocument(this.document, target);
-		if (elSelected) {
-			this.scrollToElement(elSelected, options);
-			elSelected.focus({ preventScroll: true });
-		}
-	}
-	setHistoryScrollRestoration(scrollRestoration) {
-		try {
-			this.window.history.scrollRestoration = scrollRestoration;
-		} catch {
-			console.warn(formatRuntimeError(2400, ngDevMode && "Failed to set `window.history.scrollRestoration`. This may occur when:\n• The script is running inside a sandboxed iframe\n• The window is partially navigated or inactive\n• The script is executed in an untrusted or special context (e.g., test runners, browser extensions, or content previews)\nScroll position may not be preserved across navigation."));
-		}
-	}
-	scrollToElement(el, options) {
-		const rect = el.getBoundingClientRect();
-		const left = rect.left + this.window.pageXOffset;
-		const top = rect.top + this.window.pageYOffset;
-		const offset = this.offset();
-		this.window.scrollTo({
-			...options,
-			left: left - offset[0],
-			top: top - offset[1]
-		});
-	}
-};
-function findAnchorFromDocument(document, target) {
-	const documentResult = document.getElementById(target) || document.getElementsByName(target)[0];
-	if (documentResult) return documentResult;
-	if (typeof document.createTreeWalker === "function" && document.body && typeof document.body.attachShadow === "function") {
-		const treeWalker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
-		let currentNode = treeWalker.currentNode;
-		while (currentNode) {
-			const shadowRoot = currentNode.shadowRoot;
-			if (shadowRoot) {
-				const result = shadowRoot.getElementById(target) || shadowRoot.querySelector(`[name="${CSS.escape(target)}"]`);
-				if (result) return result;
-			}
-			currentNode = treeWalker.nextNode();
-		}
-	}
-	return null;
-}
 var NullViewportScroller = class {
 	setOffset(offset) {}
 	getScrollPosition() {
@@ -3465,7 +3402,6 @@ var LCPImageObserver = class LCPImageObserver {
 	observer = null;
 	constructor() {
 		assertDevMode("LCP checker");
-		if (typeof PerformanceObserver !== "undefined") this.observer = this.initPerformanceObserver();
 	}
 	initPerformanceObserver() {
 		const observer = new PerformanceObserver((entryList) => {
@@ -3589,13 +3525,7 @@ var PreconnectLinkChecker = class PreconnectLinkChecker {
 		});
 		else this.blocklist.add(extractHostname(origins));
 	}
-	assertPreconnect(rewrittenSrc, originalNgSrc) {
-		const imgUrl = getUrl(rewrittenSrc, this.window);
-		if (this.blocklist.has(imgUrl.hostname) || this.alreadySeen.has(imgUrl.origin)) return;
-		this.alreadySeen.add(imgUrl.origin);
-		this.preconnectLinks ??= this.queryPreconnectLinks();
-		if (!this.preconnectLinks.has(imgUrl.origin)) console.warn(formatRuntimeError(2956, `${imgDirectiveDetails(originalNgSrc)} there is no preconnect tag present for this image. Preconnecting to the origin(s) that serve priority images ensures that these images are delivered as soon as possible. To fix this, please add the following element into the <head> of the document:\n  <link rel="preconnect" href="${imgUrl.origin}">`));
-	}
+	assertPreconnect(rewrittenSrc, originalNgSrc) {}
 	queryPreconnectLinks() {
 		const preconnectUrls = /* @__PURE__ */ new Set();
 		const links = this.document.querySelectorAll("link[rel=preconnect]");
@@ -3673,7 +3603,6 @@ var ASPECT_RATIO_TOLERANCE = .1;
 var OVERSIZED_IMAGE_TOLERANCE = 1e3;
 var FIXED_SRCSET_WIDTH_LIMIT = 1920;
 var FIXED_SRCSET_HEIGHT_LIMIT = 1080;
-var PLACEHOLDER_DIMENSION_LIMIT = 1e3;
 var DATA_URL_WARN_LIMIT = 4e3;
 var DATA_URL_ERROR_LIMIT = 1e4;
 var BUILT_IN_LOADERS = [
@@ -3682,8 +3611,6 @@ var BUILT_IN_LOADERS = [
 	cloudinaryLoaderInfo,
 	netlifyLoaderInfo
 ];
-var PRIORITY_COUNT_THRESHOLD = 10;
-var IMGS_WITH_PRIORITY_ATTR_COUNT = 0;
 var NgOptimizedImage = class NgOptimizedImage {
 	imageLoader = inject(IMAGE_LOADER);
 	config = processConfig(inject(IMAGE_CONFIG));
@@ -3748,10 +3675,7 @@ var NgOptimizedImage = class NgOptimizedImage {
 			ngZone.runOutsideAngular(() => {
 				this.lcpObserver.registerImage(this.getRewrittenSrc(), this.priority);
 			});
-			if (this.priority) {
-				this.injector.get(PreconnectLinkChecker).assertPreconnect(this.getRewrittenSrc(), this.ngSrc);
-				assetPriorityCountBelowThreshold(this.injector.get(ApplicationRef));
-			}
+			if (this.priority) this.injector.get(PreconnectLinkChecker).assertPreconnect(this.getRewrittenSrc(), this.ngSrc);
 		}
 		if (this.placeholder) this.removePlaceholderOnLoad(this.imgElement);
 		this.setHostAttributes();
@@ -3766,11 +3690,12 @@ var NgOptimizedImage = class NgOptimizedImage {
 		this.setHostAttribute("fetchpriority", this.getFetchPriority());
 		this.setHostAttribute("decoding", this.getDecoding());
 		this.setHostAttribute("ng-img", "true");
-		this.updateSrcAndSrcset();
+		const rewrittenSrcset = this.updateSrcAndSrcset();
 		if (this.sizes) {
 			if (this.getLoadingBehavior() === "lazy") this.setHostAttribute("sizes", "auto, " + this.sizes);
 			else this.setHostAttribute("sizes", this.sizes);
 		} else if (this.ngSrcset && VALID_WIDTH_DESCRIPTOR_SRCSET.test(this.ngSrcset) && this.getLoadingBehavior() === "lazy") this.setHostAttribute("sizes", "auto, 100vw");
+		if (this.priority) this.injector.get(PreloadLinkCreator).createPreloadLinkTag(this.renderer, this.getRewrittenSrc(), rewrittenSrcset, this.sizes, this.imgElement.getAttribute("crossorigin"));
 	}
 	ngOnChanges(changes) {
 		if (ngDevMode) assertNoPostInitInputChange(this, changes, [
@@ -3794,7 +3719,7 @@ var NgOptimizedImage = class NgOptimizedImage {
 				});
 			}
 		}
-		if (ngDevMode && changes["placeholder"]?.currentValue && true) assertPlaceholderDimensions(this, this.imgElement);
+		if (ngDevMode && changes["placeholder"]?.currentValue && false);
 	}
 	getAspectRatio() {
 		if (this.width && this.height && this.height !== 0) return this.width / this.height;
@@ -4213,19 +4138,6 @@ function assertNoNgSrcsetWithoutLoader(dir, imageLoader) {
 }
 function assertNoLoaderParamsWithoutLoader(dir, imageLoader) {
 	if (dir.loaderParams && imageLoader === noopImageLoader) console.warn(formatRuntimeError(2963, `${imgDirectiveDetails(dir.ngSrc)} the \`loaderParams\` attribute is present but no image loader is configured (i.e. the default one is being used), which means that the loaderParams data will not be consumed and will not affect the URL. To fix this, provide a custom loader or remove the \`loaderParams\` attribute from the image.`));
-}
-async function assetPriorityCountBelowThreshold(appRef) {
-	if (IMGS_WITH_PRIORITY_ATTR_COUNT === 0) {
-		IMGS_WITH_PRIORITY_ATTR_COUNT++;
-		await appRef.whenStable();
-		if (IMGS_WITH_PRIORITY_ATTR_COUNT > PRIORITY_COUNT_THRESHOLD) console.warn(formatRuntimeError(2966, `NgOptimizedImage: The "priority" attribute is set to true more than ${PRIORITY_COUNT_THRESHOLD} times (${IMGS_WITH_PRIORITY_ATTR_COUNT} times). Marking too many images as "high" priority can hurt your application's LCP (https://web.dev/lcp). "Priority" should only be set on the image expected to be the page's LCP element.`));
-	} else IMGS_WITH_PRIORITY_ATTR_COUNT++;
-}
-function assertPlaceholderDimensions(dir, imgElement) {
-	const computedStyle = window.getComputedStyle(imgElement);
-	let renderedWidth = parseFloat(computedStyle.getPropertyValue("width"));
-	let renderedHeight = parseFloat(computedStyle.getPropertyValue("height"));
-	if (renderedWidth > PLACEHOLDER_DIMENSION_LIMIT || renderedHeight > PLACEHOLDER_DIMENSION_LIMIT) console.warn(formatRuntimeError(2967, `${imgDirectiveDetails(dir.ngSrc)} it uses a placeholder image, but at least one of the dimensions attribute (height or width) exceeds the limit of ${PLACEHOLDER_DIMENSION_LIMIT}px. To fix this, use a smaller image as a placeholder.`));
 }
 function callOnLoadIfImageIsLoaded(img, callback) {
 	if (img.complete && img.naturalWidth) callback();

@@ -1,7 +1,8 @@
-import { $c as _global, $i as unwrapSafeValue, Al as ɵɵdefineInjectable, Ar as _sanitizeUrl, Bc as PLATFORM_ID, Br as bypassSanitizationTrustUrl, Cr as TracingService, Dc as INJECTOR_SCOPE, Dr as ViewEncapsulation, F as createPlatformFactory, Fn as Injectable, Ir as bypassSanitizationTrustHtml, Kc as RuntimeError, Ki as setDocument, Lr as bypassSanitizationTrustResourceUrl, Nr as allLeavingAnimations, Pl as ɵɵinject, Pn as Inject, Pr as allowSanitizationBypassAndThrow, Pt as CACHE_ACTIVE, Qn as Optional, Rc as NgZone, Rr as bypassSanitizationTrustScript, Sc as ErrorHandler, Tr as USE_PENDING_TASKS, Vc as PLATFORM_INITIALIZER, Wi as setClassMetadata, Xc as Version, Xr as describeDomNode, Yt as APP_BOOTSTRAP_LISTENER, Z as internalCreateApplication, _c as DOCUMENT, _l as makeEnvironmentProviders, al as formatRuntimeError, ao as ɵɵdefineNgModule, ar as RendererFactory2, br as TestabilityRegistry, bt as withI18nSupport$1, dl as inject, dr as Service, fn as Console, hc as CSP_NONCE, hr as TESTABILITY_GETTER, jl as ɵɵdefineInjector, jn as IS_ENABLED_BLOCKING_INITIAL_NAVIGATION, kc as InjectionToken, kr as _sanitizeHtml, mr as TESTABILITY, ol as forwardRef, or as RendererStyleFlags2, ot as platformCore, pc as APP_ID, qc as SecurityContext, qn as NgModule, so as ɵɵdefineService, sr as SHARED_STYLES_HOST, t as ApplicationModule, tn as ApplicationRef, ut as provideStabilityDebugging, vt as withDomHydration, xt as withIncrementalHydration$1, yc as ENVIRONMENT_INITIALIZER, yr as Testability, yt as withEventReplay$1, zr as bypassSanitizationTrustStyle } from "./core-CDiRDZMc.js";
-import { c as setRootDomAdapter, i as DomAdapter, n as parseCookieValue, s as getDOM } from "./_xhr-chunk-RBhE8aNP.js";
-import { a as PLATFORM_BROWSER_ID, x as CommonModule } from "./common-CU0hY4uV.js";
-import { r as withHttpTransferCache } from "./http-D-D-cdZr.js";
+import { A as ENVIRONMENT_INITIALIZER, Cr as inject, F as ErrorHandler, Nn as formatRuntimeError, Pn as forwardRef, T as DOCUMENT, U as InjectionToken, V as INJECTOR_SCOPE, ca as ɵɵdefineInjectable, dt as SecurityContext, et as NgZone, fa as ɵɵinject, it as PLATFORM_INITIALIZER, la as ɵɵdefineInjector, lt as RuntimeError, mt as Version, oi as makeEnvironmentProviders, rt as PLATFORM_ID, t as CACHE_ACTIVE, vt as _global, x as CSP_NONCE, y as APP_ID } from "./_resource-chunk-Bx4DDTyu.js";
+import { Ai as setClassMetadata, Cr as bypassSanitizationTrustResourceUrl, Er as bypassSanitizationTrustUrl, F as createPlatformFactory, Ft as APP_BOOTSTRAP_LISTENER, Ga as ɵɵdefineNgModule, Gn as RendererFactory2, Ir as describeDomNode, Kn as RendererStyleFlags2, Mi as setDocument, Nn as NgModule, Qt as Console, Rn as Optional, Sr as bypassSanitizationTrustHtml, Tr as bypassSanitizationTrustStyle, Vt as ApplicationRef, Z as internalCreateApplication, Zn as Service, _n as IS_ENABLED_BLOCKING_INITIAL_NAVIGATION, ar as Testability, bn as Inject, br as allowSanitizationBypassAndThrow, bt as withI18nSupport$1, dr as USE_PENDING_TASKS, er as TESTABILITY, gr as _sanitizeUrl, hr as _sanitizeHtml, lr as TracingService, or as TestabilityRegistry, ot as platformCore, pr as ViewEncapsulation, qa as ɵɵdefineService, qn as SHARED_STYLES_HOST, t as ApplicationModule, tr as TESTABILITY_GETTER, ut as provideStabilityDebugging, vt as withDomHydration, wr as bypassSanitizationTrustScript, xn as Injectable, xt as withIncrementalHydration$1, yr as allLeavingAnimations, yt as withEventReplay$1, zi as unwrapSafeValue } from "./core-hZFQOlIB.js";
+import { c as setRootDomAdapter, i as DomAdapter, n as parseCookieValue, s as getDOM } from "./_xhr-chunk-CkeOX44l.js";
+import { a as PLATFORM_BROWSER_ID, x as CommonModule } from "./common-CzQgkkMp.js";
+import { r as withHttpTransferCache } from "./http-D7E4iSRA.js";
 //#region node_modules/@angular/platform-browser/fesm2022/_dom_renderer-chunk.mjs
 /**
 * @license Angular v22.2.3
@@ -185,7 +186,6 @@ var SharedStylesHost = class SharedStylesHost {
 	}
 	addElement(host, element) {
 		if (this.nonce) element.setAttribute("nonce", this.nonce);
-		element.setAttribute(APP_ID_ATTRIBUTE_NAME, this.appId);
 		return host.appendChild(element);
 	}
 	static ɵfac = function SharedStylesHost_Factory(__ngFactoryType__) {
@@ -299,10 +299,6 @@ var DomRendererFactory2 = class DomRendererFactory2 {
 	}
 	createRenderer(element, type) {
 		if (!element || !type) return this.defaultRenderer;
-		if (type.encapsulation === ViewEncapsulation.ShadowDom || type.encapsulation === ViewEncapsulation.ExperimentalIsolatedShadowDom) type = {
-			...type,
-			encapsulation: ViewEncapsulation.Emulated
-		};
 		const renderer = this.getOrCreateRenderer(element, type);
 		if (renderer instanceof EmulatedEncapsulationDomRenderer2) renderer.applyToHost(element);
 		else if (renderer instanceof NoneEncapsulationDomRenderer) renderer.applyStyles();
@@ -505,7 +501,7 @@ var DefaultDomRenderer2 = class {
 	decoratePreventDefault(eventHandler) {
 		return (event) => {
 			if (event === "__ngUnwrap__") return eventHandler;
-			if (this.ngZone.runGuarded(() => eventHandler(event)) === false) event.preventDefault();
+			if (eventHandler(event) === false) event.preventDefault();
 		};
 	}
 };

@@ -472,7 +472,7 @@ export class NavbarComponent {
   public logout(): void {
     this.userMenuOpen.set(false);
     this.authService.logout();
-    this.router.navigate(['/']);
+    this.router.navigate(['/login']);
   }
 
   @HostListener('document:click', ['$event'])

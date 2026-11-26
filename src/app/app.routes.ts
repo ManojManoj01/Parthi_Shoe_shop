@@ -8,22 +8,25 @@ import { SignupComponent } from './pages/signup/signup.component';
 import { ForgotPasswordComponent } from './pages/forgot-password/forgot-password.component';
 import { ContactComponent } from './pages/contact/contact.component';
 import { ProfileComponent } from './pages/profile/profile.component';
-import { authGuard } from './core/guards/auth.guard';
+import { authGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
     path: '',
     component: HomeComponent,
+    canActivate: [authGuard],
     title: 'StepStyle Footwear Store | Palani Shoes'
   },
   {
     path: 'products',
     component: ProductsComponent,
+    canActivate: [authGuard],
     title: 'Footwear & Slippers Collections | StepStyle'
   },
   {
     path: 'product/:id',
     component: ProductDetailComponent,
+    canActivate: [authGuard],
     title: 'Product Details | StepStyle'
   },
   {
@@ -39,24 +42,28 @@ export const routes: Routes = [
     title: 'My Profile & Footwear Preferences | StepStyle'
   },
   {
+    path: 'contact',
+    component: ContactComponent,
+    canActivate: [authGuard],
+    title: 'Contact Store & Directions | Palani Shoes'
+  },
+  {
     path: 'login',
     component: LoginComponent,
+    canActivate: [guestGuard],
     title: 'Sign In | StepStyle Footwear'
   },
   {
     path: 'signup',
     component: SignupComponent,
+    canActivate: [guestGuard],
     title: 'Create Account | StepStyle Footwear'
   },
   {
     path: 'forgot-password',
     component: ForgotPasswordComponent,
+    canActivate: [guestGuard],
     title: 'Forgot Password | StepStyle'
-  },
-  {
-    path: 'contact',
-    component: ContactComponent,
-    title: 'Contact Store & Directions | Palani Shoes'
   },
   {
     path: '**',

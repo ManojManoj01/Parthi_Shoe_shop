@@ -103,64 +103,15 @@ export class AuthService {
   private getInitialUser(): User | null {
     if (!this.isBrowser) return null;
     try {
-      // 1. Check URL parameters for SSO handoff from Admin Portal
-      if (typeof window !== 'undefined' && window.location?.search) {
-        const params = new URLSearchParams(window.location.search);
-        const ssoUser = params.get('sso_user');
-        const ssoToken = params.get('sso_token');
-        if (ssoUser && ssoToken) {
-          try {
-            const raw = JSON.parse(decodeURIComponent(ssoUser));
-            const adminUser: User = {
-              id: String(raw.id || 'admin_1'),
-              username: raw.username || 'admin',
-              firstName: raw.firstName || 'System',
-              lastName: raw.lastName || 'Administrator',
-              email: raw.email || 'admin@palanishoes.com',
-              role: 'admin',
-              isProfileComplete: true
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
-            localStorage.setItem(TOKEN_KEY, decodeURIComponent(ssoToken));
-            const cleanUrl = window.location.pathname + (window.location.hash || '');
-            window.history.replaceState({}, document.title, cleanUrl);
-            return adminUser;
-          } catch (e) {
-            console.error('Failed to parse sso_user param:', e);
-          }
-        }
-      }
-
-      // 2. Check localhost shared cookies for active admin session
-      if (typeof document !== 'undefined' && document.cookie) {
-        const cookieUserMatch = document.cookie.match(/(?:^|;\s*)stepstyle_admin_user=([^;]+)/);
-        const cookieTokenMatch = document.cookie.match(/(?:^|;\s*)stepstyle_admin_token=([^;]+)/);
-        if (cookieUserMatch && cookieTokenMatch) {
-          try {
-            const raw = JSON.parse(decodeURIComponent(cookieUserMatch[1]));
-            const adminUser: User = {
-              id: String(raw.id || 'admin_1'),
-              username: raw.username || 'admin',
-              firstName: raw.firstName || 'System',
-              lastName: raw.lastName || 'Administrator',
-              email: raw.email || 'admin@palanishoes.com',
-              role: 'admin',
-              isProfileComplete: true
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
-            localStorage.setItem(TOKEN_KEY, decodeURIComponent(cookieTokenMatch[1]));
-            return adminUser;
-          } catch (e) {}
-        }
-      }
-
-      // 3. Normal storage check
       const stored = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
       if (!stored) return null;
       const user: User = JSON.parse(stored);
       if (user.role === 'admin') {
-        user.isProfileComplete = true;
-        return user;
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        return null;
       }
       user.isProfileComplete = this.calculateProfileScore(user) >= 80;
       return user;
@@ -172,19 +123,6 @@ export class AuthService {
   private getInitialToken(): string | null {
     if (!this.isBrowser) return null;
     try {
-      if (typeof window !== 'undefined' && window.location?.search) {
-        const params = new URLSearchParams(window.location.search);
-        const ssoToken = params.get('sso_token');
-        if (ssoToken) {
-          return decodeURIComponent(ssoToken);
-        }
-      }
-      if (typeof document !== 'undefined' && document.cookie) {
-        const cookieTokenMatch = document.cookie.match(/(?:^|;\s*)stepstyle_admin_token=([^;]+)/);
-        if (cookieTokenMatch) {
-          return decodeURIComponent(cookieTokenMatch[1]);
-        }
-      }
       const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
       // Reject legacy fake client-generated tokens
       if (!token || token.startsWith('mock_') || token.startsWith('offline_') || token.startsWith('jwt_')) {
@@ -215,6 +153,10 @@ export class AuthService {
       map(res => {
         const backendUser = res?.user || res?.data || {};
         const user = this.mapBackendUser(backendUser, userIdentifier);
+
+        if (user.role === 'admin') {
+          throw new Error('Administrator accounts cannot sign in here. Please use the dedicated Admin Portal.');
+        }
 
         const token = res?.accessToken || res?.token;
         if (!token) {
@@ -304,6 +246,10 @@ export class AuthService {
     return this.http.get<any>(`${this.authApiUrl}/me`).pipe(
       map(backendUser => this.mapBackendUser(backendUser)),
       tap(user => {
+        if (user.role === 'admin') {
+          this.clearLocalSession();
+          return;
+        }
         this.persistUser(user);
       }),
       catchError(() => of(null))
